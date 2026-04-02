@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { PeekMention, UrgentMention, TopicMention, isSuggestionActive } from '@/extensions/mention'
@@ -86,7 +86,7 @@ export function ComposeBox({ onSend, className }: ComposeBoxProps) {
       handleKeyDown: (view, event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
           if (isSuggestionActive()) return false
-          const text = serializeToText(editorRef.current)
+          const text = serializeToText(editorRef.current!)
           if (text) {
             sendFnRef.current?.(text)
             editorRef.current?.commands.clearContent(true)

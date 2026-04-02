@@ -404,8 +404,8 @@ export const TopicMention = Mention.extend({
       }
     },
 
-    command: ({ editor, range, props: topic }: { editor: ReturnType<typeof import('@tiptap/react').useEditor>; range: { from: number; to: number }; props: Topic }) => {
-      editor!
+    command: ({ editor, range, props: topic }: any) => {
+      editor
         .chain()
         .focus()
         .insertContentAt(range, [
