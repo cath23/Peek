@@ -11,23 +11,23 @@ import { ConversationHeader } from '@/components/ConversationHeader'
 import { ConversationCard } from '@/components/ConversationCard'
 import { DateDivider } from '@/components/ui/DateDivider'
 import { DM_CONVERSATIONS } from '@/data/dmData'
+import { type ConversationData } from '@/data/topicData'
 
 const DMS = [
-  { id: 1, name: 'Alice Johnson', isUnread: true },
+  { id: 1, name: 'Alice Johnson', isUnread: false },
   { id: 2, name: 'Bob Smith',     isUnread: false },
   { id: 3, name: 'Carol White',   isUnread: false },
 ]
 
 const TEAMS = [
   { id: 10, name: 'Account Management' },
-  { id: 11, name: 'Design team' },
+  { id: 11, name: 'Designers' },
   { id: 12, name: 'Engineering' },
 ]
 
 const ALL_ITEMS = [...DMS, ...TEAMS]
 const DM_IDS = new Set(DMS.map((d) => d.id))
 
-// Unread always first
 const sortedDms = [...DMS].sort((a, b) => Number(b.isUnread) - Number(a.isUnread))
 
 export function PeoplePage() {
@@ -35,15 +35,51 @@ export function PeoplePage() {
   const [teamsExpanded, setTeamsExpanded] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  // Sent messages per DM
+  const [sentMessages, setSentMessages] = useState<Record<number, ConversationData[]>>({})
+  // Deleted conversation ids
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
+
   const selectedItem = selectedId ? ALL_ITEMS.find((i) => i.id === selectedId) : null
   const isDm = selectedId != null && DM_IDS.has(selectedId)
   const dmGroups = selectedId != null ? (DM_CONVERSATIONS[selectedId] ?? []) : []
+  const currentSent = selectedId != null ? (sentMessages[selectedId] ?? []) : []
+
+  const handleSend = (text: string) => {
+    if (selectedId == null) return
+    const newMsg: ConversationData = {
+      id: `sent_${Date.now()}`,
+      authorName: 'You',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      body: text,
+    }
+    setSentMessages((prev) => ({
+      ...prev,
+      [selectedId]: [...(prev[selectedId] ?? []), newMsg],
+    }))
+  }
+
+  const handleDelete = (id: string) => {
+    if (selectedId == null) return
+    setSentMessages((prev) => ({
+      ...prev,
+      [selectedId]: (prev[selectedId] ?? []).filter((m) => m.id !== id),
+    }))
+    setDeletedIds((prev) => new Set([...prev, id]))
+  }
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [selectedId])
+
+  // Scroll to bottom whenever a new message is added
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [currentSent.length])
 
   return (
     <AppShell
@@ -110,29 +146,46 @@ export function PeoplePage() {
                         label={group.dateLabel}
                         className="sticky top-0 z-10 bg-bg-surface"
                       />
-                      {group.convs.map((c) => (
+                      {group.convs.filter((c) => !deletedIds.has(c.id)).map((c) => (
                         <ConversationCard
                           key={`${selectedId}_${c.id}`}
                           authorName={c.authorName}
                           timestamp={c.timestamp}
                           body={c.body}
+                          reactions={c.reactions}
                           replyCount={c.replyCount}
                           hasNewReply={c.hasNewReply}
                           isResolved={c.isResolved}
                           resolvedBy={c.resolvedBy}
                           resolutionMessage={c.resolutionMessage}
+                          onDelete={() => handleDelete(c.id)}
                         />
                       ))}
                     </div>
                   ))}
+
+                  {/* Sent messages */}
+                  {currentSent.length > 0 && (
+                    <div className="flex flex-col gap-3">
+                      <DateDivider label="Today" className="sticky top-0 z-10 bg-bg-surface" />
+                      {currentSent.map((m) => (
+                        <ConversationCard
+                          key={m.id}
+                          authorName={m.authorName}
+                          timestamp={m.timestamp}
+                          body={m.body}
+                          onDelete={() => handleDelete(m.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="p-3">
-                <ComposeBox />
+                <ComposeBox onSend={handleSend} />
               </div>
             </div>
           ) : (
-            // Teams — no conversations yet
             <div className="flex-1 flex items-center justify-center h-full">
               <EmptyState />
             </div>

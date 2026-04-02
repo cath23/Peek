@@ -2,42 +2,49 @@ import type { ConvGroup } from './topicData'
 
 export const DM_CONVERSATIONS: Record<number, ConvGroup[]> = {
 
-  // ── Alice Johnson (unread) ─────────────────────────────────────────────────
+  // Alice Johnson (unread)
   1: [
     {
-      dateLabel: 'Yesterday',
+      dateLabel: 'Mon, August 26',
       convs: [
         {
           id: 'dm1_c1',
           authorName: 'Alice Johnson',
-          timestamp: '3:22 PM',
-          body: "Hey, have you had a chance to look at Zendesk ticket #48821 that I flagged last week? The customer is escalating and our SLA window closes tomorrow EOD. We need to give them something concrete.",
+          timestamp: '9:45 AM',
+          body: "Have you had a chance to look at Zendesk ticket #48821 that I flagged last week?\n\nThe customer is escalating and our SLA window closes tomorrow EOD. We need to give them something concrete.",
         },
         {
           id: 'dm1_c2',
-          authorName: 'You',
-          timestamp: '3:45 PM',
-          body: "Just pulled it up. The issue is in the rate limiting logic — when a user hits our API more than 5 times within 10 seconds from a mobile network, they get a 429, but the client-side retry handler doesn't back off at all. It just fires again immediately, gets another 429, and the user sees a permanent error state. I'm working on an exponential backoff fix now.",
-          replyCount: 1,
+          authorName: 'Alice Johnson',
+          timestamp: '2:10 PM',
+          body: "Separate issue worth flagging: the onboarding drop-off spike this week looks concentrated in the EU region specifically.\n\nI checked the Mixpanel funnel by geography and EU completions dropped 28% in 5 days while everywhere else held flat. Might be worth ruling out a regional infra issue before we assume it's a UX problem.",
         },
         {
           id: 'dm1_c3',
-          authorName: 'Alice Johnson',
-          timestamp: '3:48 PM',
-          body: "That explains it perfectly — the customer was describing exactly that loop. Can you flag me when it's deployed to staging? I want to verify before we respond to them. I'll hold them off until tomorrow morning.",
+          authorName: 'You',
+          timestamp: '3:30 PM',
+          body: "Checked the error logs for EU-West-1. There's a noticeable uptick in 503s from the identity verification service between 9am and 11am CET.\n\nLooks like a capacity issue during peak hours rather than anything in the product flow. I'll share the log link so you can include it in the incident note.",
+          reactions: [{ emoji: '👍', count: 1, owner: 'others' }],
+          replyCount: 2,
         },
+      ],
+    },
+    {
+      dateLabel: 'Yesterday',
+      convs: [
         {
           id: 'dm1_c4',
           authorName: 'You',
-          timestamp: '5:10 PM',
-          body: "Fix is in staging now — branch `fix/rate-limit-backoff`. Retry now waits 1s, 2s, 4s before surfacing an error to the user. Should cover the mobile network blip scenario entirely. Let me know what you find.",
-          replyCount: 2,
+          timestamp: '10:05 AM',
+          body: "Rate limiting fix from last week is now live in production, build #5102.\n\nExponential backoff is working as expected in the monitoring data, no more 429 loops showing up. Zendesk ticket #48821 can be closed on your end.",
+          replyCount: 1,
         },
         {
           id: 'dm1_c5',
-          authorName: 'Alice Johnson',
-          timestamp: '5:34 PM',
-          body: "Just tested it — the retry behaviour is exactly right. Responding to the customer now and flagging the staging fix for production deployment in tomorrow's release window. Thank you, that was fast.",
+          authorName: 'You',
+          timestamp: '1:45 PM',
+          body: "One thing worth raising in the 2pm design review: the current export design assumes synchronous generation, but for datasets over 10k rows that's going to be a problem.\n\nWe'll need either a job queue with a download link or pagination on the export endpoint. I'll bring both options written up so we can decide in the room.",
+          replyCount: 3,
         },
       ],
     },
@@ -48,65 +55,59 @@ export const DM_CONVERSATIONS: Record<number, ConvGroup[]> = {
           id: 'dm1_c6',
           authorName: 'Alice Johnson',
           timestamp: '9:10 AM',
-          body: "Morning! Two things — (1) customer confirmed the staging fix resolves their issue, they're happy to wait for the production release. (2) Are you joining the design review at 2pm? Your input on the API constraints for the export feature would be really valuable — the design team doesn't have full visibility on what's feasible.",
+          body: "Morning! The design team incorporated your async export feedback from yesterday, they're now going with the job queue approach. They've got a draft of the loading state and download-ready notification in Figma if you want to take a look before it goes to eng.\n\nAlso the customer on ticket #48821 confirmed the rate limiting fix resolved their issue. Closing it out now.",
           hasNewReply: true,
         },
       ],
     },
   ],
 
-  // ── Bob Smith ──────────────────────────────────────────────────────────────
+  // Bob Smith
   2: [
     {
-      dateLabel: 'Wed, August 28',
+      dateLabel: 'Wed, August 21',
       convs: [
         {
           id: 'dm2_c1',
           authorName: 'Bob Smith',
           timestamp: '10:15 AM',
-          body: "Hey — quick one. I'm putting together the Q3 board deck and need the key product metrics. Specifically: MAU, DAU, 30-day retention rate, and if you can get it, trial-to-paid conversion. Needs to be ready by Monday morning.",
+          body: "Hey, quick one. I'm putting together the Q3 board deck and need the key product metrics by Monday morning.\n\nSpecifically: MAU, DAU, 30-day retention rate, and trial-to-paid conversion if you can get it.",
         },
         {
           id: 'dm2_c2',
-          authorName: 'You',
-          timestamp: '10:40 AM',
-          body: "I can pull all of those from the analytics dashboard. I'll also segment the retention rate by acquisition channel if that's useful — usually tells a clearer story for board-level conversations. Give me until end of day Friday.",
-        },
-        {
-          id: 'dm2_c3',
           authorName: 'Bob Smith',
-          timestamp: '10:43 AM',
-          body: "Channel-segmented retention would be great, yes. No rush on the exact timing — Monday morning is fine. One more thing: do we have anything on feature adoption for the new dashboard? I'd like to show the board that users are engaging with it, not just logging in.",
-        },
-        {
-          id: 'dm2_c4',
-          authorName: 'You',
-          timestamp: '11:00 AM',
-          body: "We have the event data for dashboard interactions — I can put together a quick view showing weekly active users of the dashboard feature vs overall WAU. Should give a good sense of adoption without drowning them in numbers.",
+          timestamp: '3:05 PM',
+          body: "One more thing while I have you: do we have any data on feature adoption for the new dashboard?\n\nI'd like to show the board that users are actually engaging with it, not just logging in. Even a rough weekly active users breakdown for that feature would do it.",
         },
       ],
     },
     {
-      dateLabel: 'Fri, August 30',
+      dateLabel: 'Fri, August 23',
       convs: [
         {
-          id: 'dm2_c5',
+          id: 'dm2_c3',
           authorName: 'You',
           timestamp: '4:30 PM',
-          body: "Metrics doc is ready and shared with you in Notion. Highlights: MAU is up 12% QoQ, 30-day retention at 68% overall (organic acquisition performing 14 points above paid). Trial-to-paid conversion at 23%, slightly below last quarter but the absolute numbers are higher. Dashboard feature adoption at 41% of MAUs in first 30 days — strong for a new feature.",
+          body: "Metrics doc is ready and shared in Notion. Highlights:\n\n- MAU is up 12% QoQ\n- 30-day retention at 68% overall (organic acquisition running 14 points above paid)\n- Trial-to-paid conversion at 23%, slightly below last quarter but absolute numbers are higher\n- Dashboard feature adoption at 41% of MAUs in first 30 days\n\nLet me know if you need any numbers reframed for the board context.",
+          reactions: [{ emoji: '🙏', count: 1, owner: 'others' }, { emoji: '💯', count: 1, owner: 'others' }],
           replyCount: 1,
         },
+      ],
+    },
+    {
+      dateLabel: 'Mon, August 26',
+      convs: [
         {
-          id: 'dm2_c6',
+          id: 'dm2_c4',
           authorName: 'Bob Smith',
-          timestamp: '4:52 PM',
-          body: "This is exactly what I needed — really appreciate you going the extra mile on the channel segmentation and the dashboard adoption cut. I'll incorporate it into the deck over the weekend. Have a good one.",
+          timestamp: '9:00 AM',
+          body: "Board presentation went well. The retention segmentation landed really well and a couple of board members asked follow-up questions specifically about the paid acquisition underperformance.\n\nWe're now running a proper attribution review in Q4 as a result. Good data drives good decisions.",
         },
       ],
     },
   ],
 
-  // ── Carol White ────────────────────────────────────────────────────────────
+  // Carol White
   3: [
     {
       dateLabel: 'Thu, August 29',
@@ -115,31 +116,21 @@ export const DM_CONVERSATIONS: Record<number, ConvGroup[]> = {
           id: 'dm3_c1',
           authorName: 'Carol White',
           timestamp: '4:10 PM',
-          body: "Hey! Just wanted to reach out — the demo you gave at the All Hands was genuinely impressive. Several stakeholders came up to me after and asked for a deeper session. Would you be up for a follow-up in October with a broader audience?",
+          body: "The demo you gave at the All Hands was genuinely impressive. Several stakeholders came up to me after and asked for a deeper session.\n\nWould you be up for a follow-up in October with a broader audience?",
+          reactions: [{ emoji: '🚀', count: 1, owner: 'yours' }],
         },
         {
           id: 'dm3_c2',
           authorName: 'You',
           timestamp: '4:32 PM',
-          body: "That's great to hear, thank you! Absolutely up for it. I was thinking a live walkthrough with a real use case rather than a polished deck might land better with that audience — more credibility and easier to pivot if they have questions. Should I coordinate directly with you or go through your EA?",
+          body: "Absolutely up for it. I was thinking a live walkthrough with a real use case might land better than a polished deck with that audience. More credibility and easier to pivot if questions come up mid-session.\n\nShould I coordinate directly with you or go through your EA?",
+          replyCount: 1,
         },
         {
           id: 'dm3_c3',
           authorName: 'Carol White',
-          timestamp: '4:38 PM',
-          body: "Coordinate with me directly — it'll be faster. I'm thinking second or third week of October, 45-minute slot. I'll send you a few options early next week. Format idea sounds perfect — the stakeholders who were most interested are very hands-on, they'll appreciate seeing it work live rather than in slides.",
-        },
-        {
-          id: 'dm3_c4',
-          authorName: 'You',
-          timestamp: '4:45 PM',
-          body: "Sounds great. I'll prep a scenario that maps to their specific use case — if you can share which team area they're from before then, I can tailor the example accordingly. Looking forward to it.",
-        },
-        {
-          id: 'dm3_c5',
-          authorName: 'Carol White',
           timestamp: '4:50 PM',
-          body: "Will do — it's primarily the Growth and RevOps leads, so something around analytics and reporting workflow would resonate most. I'll include that in the calendar invite. Thanks again — this kind of thing really helps with internal visibility for the team.",
+          body: "It's primarily the Growth and RevOps leads, so something around analytics and reporting workflow would resonate most.\n\nI'm thinking second or third week of October, 45-minute slot. I'll send you a few calendar options early next week with that context included.",
         },
       ],
     },
