@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { PeekMention, UrgentMention, TopicMention, isSuggestionActive } from '@/extensions/mention'
+import { PeekMention, UrgentMention, TopicMention, FileMention, isSuggestionActive } from '@/extensions/mention'
+import { ResolutionBlock, extractResolution } from '@/extensions/resolution'
 import {
   IconMessage2,
   IconAlertSquareRounded,
@@ -13,7 +14,15 @@ import {
   IconLockFilled,
   IconPaperclip,
   IconSquareForbid2,
+  IconBrandGithub,
+  IconFile,
+  IconFileTypePdf,
+  IconPhoto,
+  IconTable,
+  IconPresentation,
 } from '@tabler/icons-react'
+import figmaIcon from '@/assets/figma icon.svg'
+import linearIcon from '@/assets/linear icon.svg'
 import { IconButton } from './ui/IconButton'
 import { Avatar } from './ui/Avatar'
 import { Chip } from './ui/Chip'
@@ -26,6 +35,7 @@ import { ResolveDialog } from './ResolveDialog'
 import { CreateTopicDialog } from './CreateTopicDialog'
 import { PEOPLE } from '@/data/peopleData'
 import { TOPICS, type ReactionData } from '@/data/topicData'
+import { APP_FILES, DOCUMENT_FILES } from '@/data/filesData'
 import { cn } from '@/lib/utils'
 
 // Build an exact-name regex from PEOPLE so we never over-match into surrounding text.
@@ -34,11 +44,15 @@ const _escapedNames = PEOPLE
   .map((p) => p.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   .sort((a, b) => b.length - a.length)
   .join('|')
-const _escapedTopics = TOPICS
-  .map((t) => t.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+const _escapedBracketTitles = [
+  ...TOPICS.map((t) => t.title),
+  ...APP_FILES.map((f) => f.title),
+  ...DOCUMENT_FILES.map((f) => f.title),
+]
+  .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   .sort((a, b) => b.length - a.length)
   .join('|')
-const MENTION_RE = new RegExp(`((?:!@|@)(?:${_escapedNames})|#(?:${_escapedTopics}))`, 'g')
+const MENTION_RE = new RegExp(`((?:!@|@)(?:${_escapedNames})|\\[(?:${_escapedBracketTitles})\\])`, 'g')
 
 /** Parse inline content (mentions + topic refs + text) into Tiptap JSON nodes */
 function parseInlineContent(line: string): Record<string, unknown>[] {
@@ -54,18 +68,33 @@ function parseInlineContent(line: string): Record<string, unknown>[] {
       const name = part.slice(1)
       const person = PEOPLE.find((p) => p.name === name)
       content.push({ type: 'mention', attrs: { id: person?.id ?? name, label: name } })
-    } else if (part.startsWith('#') && part.length > 1) {
-      const title = part.slice(1)
+    } else if (part.startsWith('[') && part.endsWith(']') && part.length > 2) {
+      const title = part.slice(1, -1)
       const topic = TOPICS.find((t) => t.title === title)
-      content.push({
-        type: 'topicMention',
-        attrs: {
-          id: topic?.id ?? title,
-          label: title,
-          isPrivate: topic?.isPrivate ?? false,
-          isResolved: topic?.isResolved ?? false,
-        },
-      })
+      if (topic) {
+        content.push({
+          type: 'topicMention',
+          attrs: {
+            id: topic.id,
+            label: title,
+            isPrivate: topic.isPrivate,
+            isResolved: topic.isResolved,
+          },
+        })
+      } else {
+        const appFile = APP_FILES.find((f) => f.title === title)
+        const docFile = DOCUMENT_FILES.find((f) => f.title === title)
+        const file = appFile ?? docFile
+        content.push({
+          type: 'fileMention',
+          attrs: {
+            id: file?.id ?? title,
+            label: title,
+            app: appFile?.app ?? docFile?.docType ?? '',
+            subtitle: file?.subtitle ?? '',
+          },
+        })
+      }
     } else {
       content.push({ type: 'text', text: part })
     }
@@ -134,7 +163,9 @@ function serializeInline(node: { forEach: (cb: (child: { type: { name: string };
     } else if (child.type.name === 'urgentMention') {
       text += `!@${child.attrs.label}`
     } else if (child.type.name === 'topicMention') {
-      text += `#${child.attrs.label} `
+      text += `[${child.attrs.label}] `
+    } else if (child.type.name === 'fileMention') {
+      text += `[${child.attrs.label}] `
     } else {
       text += child.text ?? ''
     }
@@ -147,6 +178,8 @@ function serializeTiptapToText(editor: ReturnType<typeof useEditor>): string {
   if (!editor) return ''
   const lines: string[] = []
   editor.state.doc.forEach((node) => {
+    // Skip resolution blocks — consumed by the resolve action
+    if (node.type.name === 'resolutionBlock') return
     if (node.type.name === 'paragraph') {
       lines.push(serializeInline(node))
     } else if (node.type.name === 'bulletList') {
@@ -178,23 +211,48 @@ function renderWithMentions(text: string): React.ReactNode {
   return (
     <>
       {parts.map((part, i) => {
-        if (part.startsWith('#') && part.length > 1) {
-          const title = part.slice(1)
+        if (part.startsWith('[') && part.endsWith(']') && part.length > 2) {
+          const title = part.slice(1, -1)
           const topic = TOPICS.find((t) => t.title === title)
+          if (topic) {
+            return (
+              <span key={i} className="inline-flex items-center gap-1 rounded-sm px-1 mx-0.5 bg-bg-active text-text-primary text-sm font-normal select-none" style={{ verticalAlign: 'text-bottom', height: '1.4em' }}>
+                <span className="relative inline-flex items-center justify-center w-4 h-4 shrink-0">
+                  {topic.isResolved ? (
+                    <IconCircleCheck size={16} stroke={1.5} className="text-success-default" />
+                  ) : (
+                    <IconCircleDashed size={16} stroke={1.5} className="text-text-secondary" />
+                  )}
+                  {topic.isPrivate && (
+                    <span className="absolute left-[9px] top-[7px] bg-bg-active rounded-full p-[0.5px]">
+                      <IconLockFilled size={8} className="text-text-primary" />
+                    </span>
+                  )}
+                </span>
+                <span>{title}</span>
+              </span>
+            )
+          }
+          // App or document file
+          const appFile = APP_FILES.find((f) => f.title === title)
+          const docFile = DOCUMENT_FILES.find((f) => f.title === title)
+          const fileApp = appFile?.app ?? docFile?.docType ?? ''
+          const svgIcons: Record<string, string> = { figma: figmaIcon, linear: linearIcon }
+          const tablerIcons: Record<string, React.FC<{ size: number; stroke: number; className?: string }>> = {
+            github: IconBrandGithub, pdf: IconFileTypePdf, image: IconPhoto,
+            spreadsheet: IconTable, presentation: IconPresentation,
+          }
+          const svgSrc = svgIcons[fileApp]
+          const TablerIcon = tablerIcons[fileApp] ?? IconFile
           return (
             <span key={i} className="inline-flex items-center gap-1 rounded-sm px-1 mx-0.5 bg-bg-active text-text-primary text-sm font-normal select-none" style={{ verticalAlign: 'text-bottom', height: '1.4em' }}>
-              <span className="relative inline-flex items-center justify-center w-4 h-4 shrink-0">
-                {topic?.isResolved ? (
-                  <IconCircleCheck size={16} stroke={1.5} className="text-success-default" />
-                ) : (
-                  <IconCircleDashed size={16} stroke={1.5} className="text-text-secondary" />
-                )}
-                {topic?.isPrivate && (
-                  <span className="absolute left-[9px] top-[7px] bg-bg-active rounded-full p-[0.5px]">
-                    <IconLockFilled size={8} className="text-text-primary" />
-                  </span>
-                )}
-              </span>
+              {svgSrc ? (
+                <img src={svgSrc} width={14} height={14} alt={fileApp} className="rounded-[2px] shrink-0" />
+              ) : (
+                <span className="flex items-center justify-center w-4 h-4 shrink-0 text-text-secondary">
+                  <TablerIcon size={14} stroke={1.5} />
+                </span>
+              )}
               <span>{title}</span>
             </span>
           )
@@ -385,6 +443,8 @@ export function ConversationCard({
       PeekMention,
       UrgentMention,
       TopicMention,
+      FileMention,
+      ResolutionBlock,
     ],
     editorProps: {
       attributes: {
@@ -428,10 +488,14 @@ export function ConversationCard({
     onUpdate({ editor }) {
       const doc = editor.state.doc
       let hasNonParagraph = false
+      let hasAtomNode = false
       doc.forEach((node) => {
         if (node.type.name !== 'paragraph') hasNonParagraph = true
       })
-      const empty = doc.textContent.length === 0 && !hasNonParagraph
+      doc.descendants((node) => {
+        if (node.isAtom && node.type.name !== 'paragraph') hasAtomNode = true
+      })
+      const empty = doc.textContent.length === 0 && !hasNonParagraph && !hasAtomNode
       setEditEmpty(empty)
       editEmptyRef.current = empty
       if (empty && doc.childCount > 1) {
@@ -534,8 +598,16 @@ export function ConversationCard({
   }
 
   const handleEditSave = () => {
+    if (!editEditor) return
     const trimmed = serializeTiptapToText(editEditor)
+    const resolution = extractResolution(editEditor)
     if (trimmed) setBodyState(trimmed)
+    if (resolution.hasResolution) {
+      setResolved(true)
+      setResolvedBy('You')
+      setResolutionMsg(resolution.resolutionMessage)
+      onResolvedChange?.(true)
+    }
     setIsEditing(false)
   }
 

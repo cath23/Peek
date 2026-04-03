@@ -1,13 +1,19 @@
 import { useState, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { PeekMention, UrgentMention, TopicMention, isSuggestionActive } from '@/extensions/mention'
+import { PeekMention, UrgentMention, TopicMention, FileMention, isSuggestionActive } from '@/extensions/mention'
+import { ResolutionBlock, extractResolution } from '@/extensions/resolution'
 import { IconPaperclip, IconSquareForbid2, IconArrowUp } from '@tabler/icons-react'
 import { IconButton } from './IconButton'
 import { cn } from '@/lib/utils'
 
+export interface SendPayload {
+  text: string
+  resolution?: { message: string }
+}
+
 interface ComposeBoxProps {
-  onSend?: (value: string) => void
+  onSend?: (payload: SendPayload) => void
   className?: string
 }
 
@@ -21,7 +27,9 @@ function serializeInline(node: { forEach: (cb: (child: { type: { name: string };
     } else if (child.type.name === 'urgentMention') {
       text += `!@${child.attrs.label}`
     } else if (child.type.name === 'topicMention') {
-      text += `#${child.attrs.label}`
+      text += `[${child.attrs.label}]`
+    } else if (child.type.name === 'fileMention') {
+      text += `[${child.attrs.label}]`
     } else {
       text += child.text ?? ''
     }
@@ -33,6 +41,8 @@ function serializeToText(editor: ReturnType<typeof useEditor>): string {
   if (!editor) return ''
   const lines: string[] = []
   editor.state.doc.forEach((node) => {
+    // Skip resolution blocks — they are consumed by the resolve action
+    if (node.type.name === 'resolutionBlock') return
     if (node.type.name === 'paragraph') {
       lines.push(serializeInline(node))
     } else if (node.type.name === 'bulletList') {
@@ -61,6 +71,7 @@ function serializeToText(editor: ReturnType<typeof useEditor>): string {
 export function ComposeBox({ onSend, className }: ComposeBoxProps) {
   const [isEmpty, setIsEmpty] = useState(true)
   const [hasUrgent, setHasUrgent] = useState(false)
+  const [hasResolution, setHasResolution] = useState(false)
 
   const sendFnRef = useRef(onSend)
   sendFnRef.current = onSend
@@ -77,6 +88,8 @@ export function ComposeBox({ onSend, className }: ComposeBoxProps) {
       PeekMention,
       UrgentMention,
       TopicMention,
+      FileMention,
+      ResolutionBlock,
     ],
     editorProps: {
       attributes: {
@@ -86,10 +99,15 @@ export function ComposeBox({ onSend, className }: ComposeBoxProps) {
       handleKeyDown: (view, event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
           if (isSuggestionActive()) return false
-          const text = serializeToText(editorRef.current!)
-          if (text) {
-            sendFnRef.current?.(text)
-            editorRef.current?.commands.clearContent(true)
+          const ed = editorRef.current!
+          const text = serializeToText(ed)
+          const resolution = extractResolution(ed)
+          if (text || resolution.hasResolution) {
+            sendFnRef.current?.({
+              text,
+              resolution: resolution.hasResolution ? { message: resolution.resolutionMessage } : undefined,
+            })
+            ed.commands.clearContent(true)
           }
           return true
         }
@@ -122,10 +140,14 @@ export function ComposeBox({ onSend, className }: ComposeBoxProps) {
     onUpdate({ editor }) {
       const doc = editor.state.doc
       let hasNonParagraph = false
+      let hasAtomNode = false
       doc.forEach((node) => {
         if (node.type.name !== 'paragraph') hasNonParagraph = true
       })
-      const empty = doc.textContent.length === 0 && !hasNonParagraph
+      doc.descendants((node) => {
+        if (node.isAtom && node.type.name !== 'paragraph') hasAtomNode = true
+      })
+      const empty = doc.textContent.length === 0 && !hasNonParagraph && !hasAtomNode
       setIsEmpty(empty)
       // Collapse leftover empty paragraphs to one
       if (empty && doc.childCount > 1) {
@@ -134,23 +156,32 @@ export function ComposeBox({ onSend, className }: ComposeBoxProps) {
         })
       }
       let urgent = false
+      let resolution = false
       editor.state.doc.descendants((node) => {
         if (node.type.name === 'urgentMention') urgent = true
+        if (node.type.name === 'resolutionBlock') resolution = true
       })
       setHasUrgent(urgent)
+      setHasResolution(resolution)
     },
   })
 
   editorRef.current = editor
 
   const handleSend = () => {
+    if (!editor) return
     const text = serializeToText(editor)
-    if (!text) return
-    onSend?.(text)
-    editor?.commands.clearContent(true)
-    editor?.commands.focus()
+    const resolution = extractResolution(editor)
+    if (!text && !resolution.hasResolution) return
+    onSend?.({
+      text,
+      resolution: resolution.hasResolution ? { message: resolution.resolutionMessage } : undefined,
+    })
+    editor.commands.clearContent(true)
+    editor.commands.focus()
     setIsEmpty(true)
     setHasUrgent(false)
+    setHasResolution(false)
   }
 
   return (

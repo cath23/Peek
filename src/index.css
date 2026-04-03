@@ -23,6 +23,11 @@
 .tiptap li p {
   margin: 0 !important;
 }
+.tiptap div[data-resolution] {
+  border-left: 3px solid var(--border-strong);
+  padding-left: 8px;
+  margin: 0;
+}
 
 /* ─── Light theme (default) ─── */
 :root {

@@ -1,13 +1,14 @@
-import { forwardRef, useEffect, useImperativeHandle, useState, useCallback } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useState, useCallback, useRef } from 'react'
 import { ReactRenderer, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import Mention from '@tiptap/extension-mention'
 import { type SuggestionOptions, type SuggestionProps } from '@tiptap/suggestion'
 import { type NodeViewProps } from '@tiptap/react'
-import { IconCircleDashed, IconCircleCheck, IconLockFilled } from '@tabler/icons-react'
+import { IconCircleDashed, IconCircleCheck, IconLockFilled, IconBrandGithub, IconFile, IconFileTypePdf, IconPhoto, IconTable, IconPresentation } from '@tabler/icons-react'
 import { PEOPLE, type Person } from '@/data/peopleData'
-import { TOPICS, type Topic } from '@/data/topicData'
+import { TOPICS } from '@/data/topicData'
+import { APP_FILES, DOCUMENT_FILES } from '@/data/filesData'
 import { MentionMenu } from '@/components/ui/MentionMenu'
-import { TopicMenu } from '@/components/ui/TopicMenu'
+import { FilesMenu, type FilesMenuItem, type FilesMenuRef } from '@/components/ui/FilesMenu'
 
 // ─── Types ───
 
@@ -229,63 +230,35 @@ export const UrgentMention = Mention.extend({
   },
 })
 
-// ─── Topic mention (#) ───
+// ─── Files mention ([) ───
 
-type TopicListRef = {
-  onKeyDown: (props: { event: KeyboardEvent }) => boolean
-}
-
-const TopicListWrapper = forwardRef<TopicListRef, SuggestionProps>(
+const FilesListWrapper = forwardRef<FilesMenuRef, SuggestionProps>(
   (props, ref) => {
-    const [highlight, setHighlight] = useState(0)
-
-    useEffect(() => setHighlight(0), [props.items])
-
-    const selectItem = useCallback(
-      (topic: Topic) => props.command(topic),
-      [props]
-    )
+    const menuRef = useRef<FilesMenuRef>(null)
 
     useImperativeHandle(ref, () => ({
-      onKeyDown: ({ event }: { event: KeyboardEvent }) => {
-        if (event.key === 'ArrowDown') {
-          setHighlight((h) => Math.min(h + 1, props.items.length - 1))
-          return true
-        }
-        if (event.key === 'ArrowUp') {
-          setHighlight((h) => Math.max(h - 1, 0))
-          return true
-        }
-        if (event.key === 'Enter') {
-          const topic = props.items[highlight]
-          if (topic) selectItem(topic)
-          return true
-        }
-        return false
-      },
+      onKeyDown: (p: { event: KeyboardEvent }) => menuRef.current?.onKeyDown(p) ?? false,
     }))
 
-    if (props.items.length === 0) return null
-
     return (
-      <TopicMenu
-        topics={props.items}
-        highlight={highlight}
-        onSelect={selectItem}
-        onHighlightChange={setHighlight}
+      <FilesMenu
+        ref={menuRef}
+        items={props.items}
+        query={props.query}
+        onSelect={(item) => props.command(item)}
       />
     )
   }
 )
-TopicListWrapper.displayName = 'TopicListWrapper'
+FilesListWrapper.displayName = 'FilesListWrapper'
 
-class TopicSuggestionPopup {
-  component: ReactRenderer<TopicListRef> | null = null
+class FilesSuggestionPopup {
+  component: ReactRenderer<FilesMenuRef> | null = null
   container: HTMLDivElement | null = null
 
   onStart(props: SuggestionProps) {
     _openCount++
-    this.component = new ReactRenderer(TopicListWrapper, {
+    this.component = new ReactRenderer(FilesListWrapper, {
       props,
       editor: props.editor,
     })
@@ -374,7 +347,7 @@ export const TopicMention = Mention.extend({
         class:
           'inline-flex items-center gap-1 rounded-sm px-1 bg-bg-active text-text-primary text-sm select-none cursor-default',
       },
-      `#${node.attrs.label}`,
+      `[${node.attrs.label}]`,
     ]
   },
 
@@ -388,14 +361,16 @@ export const TopicMention = Mention.extend({
 }).configure({
   HTMLAttributes: {},
   suggestion: {
-    char: '#',
-    items: ({ query }: { query: string }) =>
-      TOPICS.filter((t) =>
-        query === '' || t.title.toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 6),
+    char: '[',
+    items: (): FilesMenuItem[] => {
+      const topics: FilesMenuItem[] = TOPICS.map((t) => ({ kind: 'topic', data: t }))
+      const apps: FilesMenuItem[] = APP_FILES.map((f) => ({ kind: 'app', data: f }))
+      const docs: FilesMenuItem[] = DOCUMENT_FILES.map((f) => ({ kind: 'document', data: f }))
+      return [...topics, ...apps, ...docs]
+    },
 
     render: () => {
-      const popup = new TopicSuggestionPopup()
+      const popup = new FilesSuggestionPopup()
       return {
         onStart: (props: SuggestionProps) => popup.onStart(props),
         onUpdate: (props: SuggestionProps) => popup.onUpdate(props),
@@ -404,23 +379,144 @@ export const TopicMention = Mention.extend({
       }
     },
 
-    command: ({ editor, range, props: topic }: any) => {
-      editor
-        .chain()
-        .focus()
-        .insertContentAt(range, [
-          {
-            type: 'topicMention',
-            attrs: {
-              id: topic.id,
-              label: topic.title,
-              isPrivate: topic.isPrivate,
-              isResolved: topic.isResolved,
+    command: ({ editor, range, props: item }: any) => {
+      const menuItem = item as FilesMenuItem
+      if (menuItem.kind === 'topic') {
+        const topic = menuItem.data
+        editor
+          .chain()
+          .focus()
+          .insertContentAt(range, [
+            {
+              type: 'topicMention',
+              attrs: {
+                id: topic.id,
+                label: topic.title,
+                isPrivate: topic.isPrivate,
+                isResolved: topic.isResolved,
+              },
             },
-          },
-          { type: 'text', text: ' ' },
-        ])
-        .run()
+            { type: 'text', text: ' ' },
+          ])
+          .run()
+      } else if (menuItem.kind === 'app') {
+        const file = menuItem.data
+        editor
+          .chain()
+          .focus()
+          .insertContentAt(range, [
+            {
+              type: 'fileMention',
+              attrs: {
+                id: file.id,
+                label: file.title,
+                app: file.app,
+                subtitle: file.subtitle ?? '',
+              },
+            },
+            { type: 'text', text: ' ' },
+          ])
+          .run()
+      } else {
+        const doc = menuItem.data
+        editor
+          .chain()
+          .focus()
+          .insertContentAt(range, [
+            {
+              type: 'fileMention',
+              attrs: {
+                id: doc.id,
+                label: doc.title,
+                app: doc.docType,
+                subtitle: doc.subtitle ?? '',
+              },
+            },
+            { type: 'text', text: ' ' },
+          ])
+          .run()
+      }
     },
+  },
+})
+
+// ─── File mention (apps & documents) ───
+
+import figmaIcon from '@/assets/figma icon.svg'
+import linearIcon from '@/assets/linear icon.svg'
+
+const FILE_SVG_ICONS: Record<string, string> = {
+  figma: figmaIcon,
+  linear: linearIcon,
+}
+
+const FILE_TABLER_ICONS: Record<string, React.FC<{ size: number; stroke: number; className?: string }>> = {
+  github: IconBrandGithub,
+  pdf: IconFileTypePdf,
+  image: IconPhoto,
+  spreadsheet: IconTable,
+  presentation: IconPresentation,
+  generic: IconFile,
+}
+
+function FileMentionView({ node }: NodeViewProps) {
+  const { label, app } = node.attrs
+  const svgSrc = FILE_SVG_ICONS[app]
+  const TablerIcon = FILE_TABLER_ICONS[app] ?? IconFile
+  return (
+    <NodeViewWrapper as="span" className="inline-flex items-center gap-1 rounded-sm px-1 bg-bg-active text-text-primary text-sm font-normal select-none cursor-default" style={{ verticalAlign: 'text-bottom', height: '1.4em' }}>
+      {svgSrc ? (
+        <img src={svgSrc} width={14} height={14} alt={app} className="rounded-[2px] shrink-0" />
+      ) : (
+        <span className="flex items-center justify-center w-4 h-4 shrink-0 text-text-secondary">
+          <TablerIcon size={14} stroke={1.5} />
+        </span>
+      )}
+      <span>{label}</span>
+    </NodeViewWrapper>
+  )
+}
+
+export const FileMention = Mention.extend({
+  name: 'fileMention',
+  group: 'inline',
+  inline: true,
+  atom: true,
+
+  addAttributes() {
+    return {
+      id: { default: null },
+      label: { default: null },
+      app: { default: '' },
+      subtitle: { default: '' },
+    }
+  },
+
+  renderHTML({ node }) {
+    return [
+      'span',
+      {
+        'data-file-mention': 'true',
+        'data-id': node.attrs.id,
+        'data-app': node.attrs.app,
+        class:
+          'inline-flex items-center gap-1 rounded-sm px-1 bg-bg-active text-text-primary text-sm select-none cursor-default',
+      },
+      `[${node.attrs.label}]`,
+    ]
+  },
+
+  parseHTML() {
+    return [{ tag: 'span[data-file-mention]' }]
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(FileMentionView, { as: 'span' })
+  },
+}).configure({
+  HTMLAttributes: {},
+  suggestion: {
+    char: '\0',
+    items: () => [],
   },
 })

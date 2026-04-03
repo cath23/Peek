@@ -4,7 +4,7 @@ import { ContainerHeader } from '@/components/ContainerHeader'
 import { ConversationHeader } from '@/components/ConversationHeader'
 import { ConversationCard } from '@/components/ConversationCard'
 import { DateDivider } from '@/components/ui/DateDivider'
-import { ComposeBox } from '@/components/ui/ComposeBox'
+import { ComposeBox, type SendPayload } from '@/components/ui/ComposeBox'
 import { PersonRow } from '@/components/ui/PersonRow'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { TOPICS, TOPIC_CONVERSATIONS, type ConversationData } from '@/data/topicData'
@@ -39,17 +39,36 @@ export function TopicsPage() {
   const handleResolvedChange = (id: string, resolved: boolean) =>
     setResolvedOverrides((prev) => ({ ...prev, [id]: resolved }))
 
-  const handleSend = (text: string) => {
-    const newMsg: ConversationData = {
-      id: `sent_${Date.now()}`,
-      authorName: 'You',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      body: text,
+  const handleSend = ({ text, resolution }: SendPayload) => {
+    if (text) {
+      const newMsg: ConversationData = {
+        id: `sent_${Date.now()}`,
+        authorName: 'You',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        body: text,
+        isResolved: resolution ? true : undefined,
+        resolvedBy: resolution ? 'You' : undefined,
+        resolutionMessage: resolution?.message || undefined,
+      }
+      setSentMessages((prev) => ({
+        ...prev,
+        [selectedId]: [...(prev[selectedId] ?? []), newMsg],
+      }))
+    } else if (resolution) {
+      // Resolution only — resolve the last conversation
+      setSentMessages((prev) => {
+        const msgs = prev[selectedId] ?? []
+        if (msgs.length === 0) return prev
+        const updated = [...msgs]
+        updated[updated.length - 1] = {
+          ...updated[updated.length - 1],
+          isResolved: true,
+          resolvedBy: 'You',
+          resolutionMessage: resolution.message || undefined,
+        }
+        return { ...prev, [selectedId]: updated }
+      })
     }
-    setSentMessages((prev) => ({
-      ...prev,
-      [selectedId]: [...(prev[selectedId] ?? []), newMsg],
-    }))
   }
 
   const handleDelete = (id: string) => {
@@ -154,6 +173,9 @@ export function TopicsPage() {
                         authorName={m.authorName}
                         timestamp={m.timestamp}
                         body={m.body}
+                        isResolved={m.isResolved}
+                        resolvedBy={m.resolvedBy}
+                        resolutionMessage={m.resolutionMessage}
                         showCreateTopic={false}
                         onDelete={() => handleDelete(m.id)}
                       />

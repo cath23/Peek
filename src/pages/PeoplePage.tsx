@@ -6,7 +6,7 @@ import { PersonRow } from '@/components/ui/PersonRow'
 import { Divider } from '@/components/ui/Divider'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { StarredSection } from '@/components/ui/StarredSection'
-import { ComposeBox } from '@/components/ui/ComposeBox'
+import { ComposeBox, type SendPayload } from '@/components/ui/ComposeBox'
 import { ConversationHeader } from '@/components/ConversationHeader'
 import { ConversationCard } from '@/components/ConversationCard'
 import { DateDivider } from '@/components/ui/DateDivider'
@@ -45,18 +45,37 @@ export function PeoplePage() {
   const dmGroups = selectedId != null ? (DM_CONVERSATIONS[selectedId] ?? []) : []
   const currentSent = selectedId != null ? (sentMessages[selectedId] ?? []) : []
 
-  const handleSend = (text: string) => {
+  const handleSend = ({ text, resolution }: SendPayload) => {
     if (selectedId == null) return
-    const newMsg: ConversationData = {
-      id: `sent_${Date.now()}`,
-      authorName: 'You',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      body: text,
+    if (text) {
+      const newMsg: ConversationData = {
+        id: `sent_${Date.now()}`,
+        authorName: 'You',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        body: text,
+        isResolved: resolution ? true : undefined,
+        resolvedBy: resolution ? 'You' : undefined,
+        resolutionMessage: resolution?.message || undefined,
+      }
+      setSentMessages((prev) => ({
+        ...prev,
+        [selectedId]: [...(prev[selectedId] ?? []), newMsg],
+      }))
+    } else if (resolution) {
+      // Resolution only (no text) — resolve the last conversation
+      setSentMessages((prev) => {
+        const msgs = prev[selectedId] ?? []
+        if (msgs.length === 0) return prev
+        const updated = [...msgs]
+        updated[updated.length - 1] = {
+          ...updated[updated.length - 1],
+          isResolved: true,
+          resolvedBy: 'You',
+          resolutionMessage: resolution.message || undefined,
+        }
+        return { ...prev, [selectedId]: updated }
+      })
     }
-    setSentMessages((prev) => ({
-      ...prev,
-      [selectedId]: [...(prev[selectedId] ?? []), newMsg],
-    }))
   }
 
   const handleDelete = (id: string) => {
@@ -174,6 +193,9 @@ export function PeoplePage() {
                           authorName={m.authorName}
                           timestamp={m.timestamp}
                           body={m.body}
+                          isResolved={m.isResolved}
+                          resolvedBy={m.resolvedBy}
+                          resolutionMessage={m.resolutionMessage}
                           onDelete={() => handleDelete(m.id)}
                         />
                       ))}
