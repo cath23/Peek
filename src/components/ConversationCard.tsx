@@ -379,7 +379,9 @@ interface ConversationCardProps {
   showCreateTopic?: boolean
   onResolvedChange?: (resolved: boolean) => void
   onDelete?: () => void
+  isSelected?: boolean
   onReply?: () => void
+  onClick?: () => void
   onMore?: () => void
   className?: string
 }
@@ -403,7 +405,9 @@ export function ConversationCard({
   showCreateTopic = true,
   onResolvedChange,
   onDelete,
+  isSelected = false,
   onReply,
+  onClick,
   onMore,
   className,
 }: ConversationCardProps) {
@@ -539,11 +543,23 @@ export function ConversationCard({
     return () => document.removeEventListener('mousedown', close)
   }, [showMoreMenu])
 
-  // Resolved state
+  // Resolved state — sync from parent when prop changes
   const [resolved, setResolved] = useState(initialResolved)
   const [resolvedBy, setResolvedBy] = useState(initialResolvedBy)
   const [resolutionMsg, setResolutionMsg] = useState(initialResolutionMessage)
   const [showResolveDialog, setShowResolveDialog] = useState(false)
+
+  useEffect(() => {
+    setResolved(initialResolved)
+  }, [initialResolved])
+
+  useEffect(() => {
+    setResolvedBy(initialResolvedBy)
+  }, [initialResolvedBy])
+
+  useEffect(() => {
+    setResolutionMsg(initialResolutionMessage)
+  }, [initialResolutionMessage])
 
   // Topic state
   const [isTopic, setIsTopic] = useState(initialIsTopic)
@@ -667,11 +683,15 @@ export function ConversationCard({
           'relative rounded-lg transition-colors',
           isEditing
             ? 'bg-bg-selected border border-accent-primary'
-            : isHovered
-              ? 'bg-bg-hover border border-border-default'
-              : 'bg-bg-surface border border-border-subtle',
+            : isSelected
+              ? 'bg-bg-selected border border-border-subtle'
+              : isHovered
+                ? 'bg-bg-hover border border-border-default'
+                : 'bg-bg-surface border border-transparent',
+          onClick && !isEditing && 'cursor-pointer',
           className
         )}
+        onClick={() => { if (!isEditing) onClick?.() }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => { setIsHovered(false); setShowReactionPicker(false) }}
       >

@@ -124,7 +124,9 @@ class SuggestionPopup {
     if (!this.container || !props.clientRect) return
     const rect = (props.clientRect as () => DOMRect)()
     if (!rect) return
-    this.container.style.left = `${rect.left}px`
+    const menuWidth = 658
+    const left = Math.min(rect.left, window.innerWidth - menuWidth - 8)
+    this.container.style.left = `${Math.max(8, left)}px`
     this.container.style.bottom = `${window.innerHeight - rect.top + 8}px`
     this.container.style.top = ''
   }
@@ -296,7 +298,9 @@ class FilesSuggestionPopup {
     if (!this.container || !props.clientRect) return
     const rect = (props.clientRect as () => DOMRect)()
     if (!rect) return
-    this.container.style.left = `${rect.left}px`
+    const menuWidth = 658
+    const left = Math.min(rect.left, window.innerWidth - menuWidth - 8)
+    this.container.style.left = `${Math.max(8, left)}px`
     this.container.style.bottom = `${window.innerHeight - rect.top + 8}px`
     this.container.style.top = ''
   }

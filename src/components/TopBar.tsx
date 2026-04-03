@@ -42,7 +42,7 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
     <div className="absolute top-0 left-0 right-0 h-[52px] flex items-center pl-5 pr-[26px] z-10 pointer-events-none">
       {/* Left */}
       <div className="pointer-events-auto">
-        <IconButton tooltip="Toggle menu" onClick={onMenuToggle} aria-label="Toggle menu">
+        <IconButton tooltip="Toggle menu" tooltipPlacement="bottom" onClick={onMenuToggle} aria-label="Toggle menu">
           <IconMenu2 size={16} stroke={1.5} />
         </IconButton>
       </div>

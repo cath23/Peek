@@ -14,6 +14,7 @@ export interface SendPayload {
 
 interface ComposeBoxProps {
   onSend?: (payload: SendPayload) => void
+  placeholder?: 'default' | 'reply'
   className?: string
 }
 
@@ -68,7 +69,7 @@ function serializeToText(editor: ReturnType<typeof useEditor>): string {
   return lines.join('\n').trim()
 }
 
-export function ComposeBox({ onSend, className }: ComposeBoxProps) {
+export function ComposeBox({ onSend, placeholder = 'default', className }: ComposeBoxProps) {
   const [isEmpty, setIsEmpty] = useState(true)
   const [hasUrgent, setHasUrgent] = useState(false)
 
@@ -191,11 +192,17 @@ export function ComposeBox({ onSend, className }: ComposeBoxProps) {
           <EditorContent editor={editor} />
           {isEmpty && (
             <div className="absolute inset-0 pointer-events-none flex items-center gap-1 text-sm text-text-muted leading-[1.4] flex-wrap">
-              <span>Start a new conversation or type</span>
-              <kbd className="inline-flex items-center border border-border-strong rounded-sm px-1 py-[1px] text-[12px] text-text-secondary leading-[1.2]">
-                /
-              </kbd>
-              <span>for commands</span>
+              {placeholder === 'reply' ? (
+                <span>Reply...</span>
+              ) : (
+                <>
+                  <span>Start a new conversation or type</span>
+                  <kbd className="inline-flex items-center border border-border-strong rounded-sm px-1 py-[1px] text-[12px] text-text-secondary leading-[1.2]">
+                    /
+                  </kbd>
+                  <span>for commands</span>
+                </>
+              )}
             </div>
           )}
         </div>

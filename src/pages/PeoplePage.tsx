@@ -9,8 +9,10 @@ import { StarredSection } from '@/components/ui/StarredSection'
 import { ComposeBox, type SendPayload } from '@/components/ui/ComposeBox'
 import { ConversationHeader } from '@/components/ConversationHeader'
 import { ConversationCard } from '@/components/ConversationCard'
+import { ThreadPanel } from '@/components/ThreadPanel'
 import { DateDivider } from '@/components/ui/DateDivider'
 import { DM_CONVERSATIONS } from '@/data/dmData'
+import { REPLIES, type ReplyData } from '@/data/replyData'
 import { type ConversationData } from '@/data/topicData'
 
 const DMS = [
@@ -40,10 +42,63 @@ export function PeoplePage() {
   // Deleted conversation ids
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
 
+  // Resolved state tracking
+  const [resolvedOverrides, setResolvedOverrides] = useState<Record<string, { resolved: boolean; resolvedBy?: string; message?: string }>>({})
+
+  // Thread state
+  const [threadConvId, setThreadConvId] = useState<string | null>(null)
+  const [sentReplies, setSentReplies] = useState<Record<string, ReplyData[]>>({})
+
   const selectedItem = selectedId ? ALL_ITEMS.find((i) => i.id === selectedId) : null
   const isDm = selectedId != null && DM_IDS.has(selectedId)
   const dmGroups = selectedId != null ? (DM_CONVERSATIONS[selectedId] ?? []) : []
   const currentSent = selectedId != null ? (sentMessages[selectedId] ?? []) : []
+
+  // Find the conversation currently open in thread
+  const allConvs = [...dmGroups.flatMap((g) => g.convs), ...currentSent]
+  const threadConv = threadConvId ? allConvs.find((c) => c.id === threadConvId) : null
+  const threadReplies = threadConvId ? (REPLIES[threadConvId] ?? []) : []
+  const threadSentReplies = threadConvId ? (sentReplies[threadConvId] ?? []) : []
+
+  const isConvResolved = (id: string, initial = false) =>
+    resolvedOverrides[id]?.resolved ?? initial
+  const getConvResolvedBy = (id: string, initial = '') =>
+    resolvedOverrides[id]?.resolvedBy ?? initial
+  const getConvResolutionMsg = (id: string, initial = '') =>
+    resolvedOverrides[id]?.message ?? initial
+
+  const handleResolvedChange = (id: string, resolved: boolean, resolvedBy?: string, message?: string) =>
+    setResolvedOverrides((prev) => ({ ...prev, [id]: { resolved, resolvedBy, message } }))
+
+  const openThread = (convId: string) => setThreadConvId(convId)
+  const closeThread = () => setThreadConvId(null)
+
+  const handleSendReply = ({ text, resolution }: SendPayload) => {
+    if (!threadConvId) return
+    if (text) {
+      const newReply: ReplyData = {
+        id: `reply_${Date.now()}`,
+        authorName: 'You',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        body: text,
+      }
+      setSentReplies((prev) => ({
+        ...prev,
+        [threadConvId]: [...(prev[threadConvId] ?? []), newReply],
+      }))
+    }
+    if (resolution) {
+      handleResolvedChange(threadConvId, true, 'You', resolution.message)
+    }
+  }
+
+  const handleDeleteReply = (replyId: string) => {
+    if (!threadConvId) return
+    setSentReplies((prev) => ({
+      ...prev,
+      [threadConvId]: (prev[threadConvId] ?? []).filter((r) => r.id !== replyId),
+    }))
+  }
 
   const handleSend = ({ text, resolution }: SendPayload) => {
     if (selectedId == null) return
@@ -86,6 +141,11 @@ export function PeoplePage() {
     }))
     setDeletedIds((prev) => new Set([...prev, id]))
   }
+
+  // Close thread when switching DMs
+  useEffect(() => {
+    setThreadConvId(null)
+  }, [selectedId])
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -158,9 +218,9 @@ export function PeoplePage() {
               <ConversationHeader name={selectedItem.name} />
               <div ref={scrollRef} className="flex-1 overflow-y-auto flex flex-col">
                 <div className="flex-1 min-h-0" />
-                <div className="shrink-0 flex flex-col px-4 py-4 gap-3">
+                <div className="shrink-0 flex flex-col px-4 py-4 gap-2">
                   {dmGroups.map((group) => (
-                    <div key={group.dateLabel} className="flex flex-col gap-3">
+                    <div key={group.dateLabel} className="flex flex-col gap-2">
                       <DateDivider
                         label={group.dateLabel}
                         className="sticky top-0 z-10 bg-bg-surface"
@@ -172,11 +232,15 @@ export function PeoplePage() {
                           timestamp={c.timestamp}
                           body={c.body}
                           reactions={c.reactions}
-                          replyCount={c.replyCount}
+                          replyCount={(c.replyCount ?? 0) + (sentReplies[c.id]?.length ?? 0)}
                           hasNewReply={c.hasNewReply}
-                          isResolved={c.isResolved}
-                          resolvedBy={c.resolvedBy}
-                          resolutionMessage={c.resolutionMessage}
+                          isResolved={isConvResolved(c.id, c.isResolved)}
+                          resolvedBy={getConvResolvedBy(c.id, c.resolvedBy)}
+                          resolutionMessage={getConvResolutionMsg(c.id, c.resolutionMessage)}
+                          isSelected={threadConvId === c.id}
+                          onResolvedChange={(resolved) => handleResolvedChange(c.id, resolved, resolved ? 'You' : undefined)}
+                          onClick={() => openThread(c.id)}
+                          onReply={() => openThread(c.id)}
                           onDelete={() => handleDelete(c.id)}
                         />
                       ))}
@@ -185,7 +249,7 @@ export function PeoplePage() {
 
                   {/* Sent messages */}
                   {currentSent.length > 0 && (
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-2">
                       <DateDivider label="Today" className="sticky top-0 z-10 bg-bg-surface" />
                       {currentSent.map((m) => (
                         <ConversationCard
@@ -193,9 +257,13 @@ export function PeoplePage() {
                           authorName={m.authorName}
                           timestamp={m.timestamp}
                           body={m.body}
-                          isResolved={m.isResolved}
-                          resolvedBy={m.resolvedBy}
-                          resolutionMessage={m.resolutionMessage}
+                          isResolved={isConvResolved(m.id, m.isResolved)}
+                          resolvedBy={getConvResolvedBy(m.id, m.resolvedBy)}
+                          resolutionMessage={getConvResolutionMsg(m.id, m.resolutionMessage)}
+                          isSelected={threadConvId === m.id}
+                          onResolvedChange={(resolved) => handleResolvedChange(m.id, resolved, resolved ? 'You' : undefined)}
+                          onClick={() => openThread(m.id)}
+                          onReply={() => openThread(m.id)}
                           onDelete={() => handleDelete(m.id)}
                         />
                       ))}
@@ -217,6 +285,20 @@ export function PeoplePage() {
             <EmptyState />
           </div>
         )
+      }
+      threadPanel={
+        threadConv ? (
+          <ThreadPanel
+            conversation={threadConv}
+            replies={threadReplies}
+            sentReplies={threadSentReplies}
+            isResolved={isConvResolved(threadConv.id, threadConv.isResolved)}
+
+            onClose={closeThread}
+            onSendReply={handleSendReply}
+            onDeleteReply={handleDeleteReply}
+          />
+        ) : undefined
       }
     />
   )
