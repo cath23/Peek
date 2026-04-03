@@ -71,7 +71,7 @@ function serializeToText(editor: ReturnType<typeof useEditor>): string {
 export function ComposeBox({ onSend, className }: ComposeBoxProps) {
   const [isEmpty, setIsEmpty] = useState(true)
   const [hasUrgent, setHasUrgent] = useState(false)
-  const [hasResolution, setHasResolution] = useState(false)
+
 
   const sendFnRef = useRef(onSend)
   sendFnRef.current = onSend
@@ -156,13 +156,10 @@ export function ComposeBox({ onSend, className }: ComposeBoxProps) {
         })
       }
       let urgent = false
-      let resolution = false
       editor.state.doc.descendants((node) => {
         if (node.type.name === 'urgentMention') urgent = true
-        if (node.type.name === 'resolutionBlock') resolution = true
       })
       setHasUrgent(urgent)
-      setHasResolution(resolution)
     },
   })
 
@@ -181,7 +178,6 @@ export function ComposeBox({ onSend, className }: ComposeBoxProps) {
     editor.commands.focus()
     setIsEmpty(true)
     setHasUrgent(false)
-    setHasResolution(false)
   }
 
   return (
