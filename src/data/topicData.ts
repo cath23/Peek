@@ -1,21 +1,30 @@
 export interface Topic {
   id: string
   title: string
-  isPrivate: boolean
   isResolved: boolean
 }
 
 export const TOPICS: Topic[] = [
-  { id: '1', title: 'CI/CD pipeline stuck during build stage',       isPrivate: false, isResolved: false },
-  { id: '2', title: 'Launch checklist for v2 of the mobile app',     isPrivate: true,  isResolved: false },
-  { id: '3', title: 'Ongoing onboarding issues',                     isPrivate: false, isResolved: false },
-  { id: '4', title: 'Remote work policy clarifications',             isPrivate: true,  isResolved: true  },
-  { id: '5', title: 'Usability test results for the dashboard redesign', isPrivate: false, isResolved: true  },
-  { id: '6', title: 'Show your pet!',                                isPrivate: false, isResolved: false },
-  { id: '7', title: 'Updates on the new office layout',              isPrivate: false, isResolved: false },
-  { id: '8', title: 'Quick fix needed for staging deployment issue', isPrivate: false, isResolved: false },
-  { id: '9', title: 'Feedback on mobile onboarding flow',            isPrivate: false, isResolved: false },
+  { id: '1', title: 'CI/CD pipeline stuck during build stage',       isResolved: false },
+  { id: '2', title: 'Launch checklist for v2 of the mobile app',     isResolved: false },
+  { id: '3', title: 'Ongoing onboarding issues',                     isResolved: false },
+  { id: '4', title: 'Remote work policy clarifications',             isResolved: true  },
+  { id: '5', title: 'Usability test results for the dashboard redesign', isResolved: true  },
+  { id: '6', title: 'Show your pet!',                                isResolved: false },
+  { id: '7', title: 'Updates on the new office layout',              isResolved: false },
+  { id: '8', title: 'Quick fix needed for staging deployment issue', isResolved: false },
+  { id: '9', title: 'Feedback on mobile onboarding flow',            isResolved: false },
 ]
+
+export type HighlightType = 'insight' | 'concern' | 'conclusion' | 'question' | 'summary'
+
+export const HIGHLIGHT_META: Record<HighlightType, { color: string; label: string }> = {
+  insight:    { color: '#FBBF24', label: 'Insight' },
+  concern:    { color: '#F87171', label: 'Concern' },
+  conclusion: { color: '#34D399', label: 'Conclusion' },
+  question:   { color: '#60A5FA', label: 'Question' },
+  summary:    { color: '#A78BFA', label: 'Summary' },
+}
 
 export interface ReactionData {
   emoji: string
@@ -31,6 +40,7 @@ export interface ConversationData {
   reactions?: ReactionData[]
   replyCount?: number
   hasNewReply?: boolean
+  highlightType?: HighlightType
   isResolved?: boolean
   resolvedBy?: string
   resolutionMessage?: string

@@ -1,8 +1,11 @@
+import type { HighlightType } from './topicData'
+
 export interface ReplyData {
   id: string
   authorName: string
   timestamp: string
   body: string
+  highlightType?: HighlightType
 }
 
 /**
@@ -82,5 +85,42 @@ export const REPLIES: Record<string, ReplyData[]> = {
   ],
   dm3_c2: [
     { id: 'r_dm3c2_1', authorName: 'Carol White', timestamp: '4:40 PM', body: "Go through me directly, easier to coordinate. I'll loop in my EA once we have a date locked." },
+  ],
+
+  // ── Huddle conversations ──
+  h1_1_c1: [
+    { id: 'r_h1_1_1', authorName: 'Liam Chen', timestamp: '9:48 AM', body: "Just checked. The mismatch is only in package-lock.json, not yarn.lock. We're on npm so that's the one that matters." },
+    { id: 'r_h1_1_2', authorName: 'Tom Braun', timestamp: '9:55 AM', body: "Good, so it's just the one package. I'll pin @testing-library/react to 14.x and push. Should be safe." },
+    { id: 'r_h1_1_3', authorName: 'Liam Chen', timestamp: '10:02 AM', body: "Confirmed green on my branch after the pin. Go ahead and post to the topic." },
+  ],
+  h2_1_c1: [
+    { id: 'r_h2_1_1', authorName: 'Carlos Mendez', timestamp: '9:45 AM', body: "Just pulled up the AWS console. You're right, the topic ARN is pointing to us-east-1 instead of eu-west-1." },
+    { id: 'r_h2_1_2', authorName: 'Nina Park', timestamp: '9:52 AM', body: "That explains why it works in dev but not production. Dev uses a single-region setup." },
+    { id: 'r_h2_1_3', authorName: 'Carlos Mendez', timestamp: '10:05 AM', body: "Fix is straightforward. I'll update the ARN in the environment config and test in staging before we involve the backend team." },
+    { id: 'r_h2_1_4', authorName: 'Nina Park', timestamp: '10:10 AM', body: "Perfect. Let me know when staging is verified and I'll update the topic." },
+    { id: 'r_h2_1_5', authorName: 'Carlos Mendez', timestamp: '11:30 AM', body: "Staging verified. Notifications flowing correctly in EU now. Posting to the topic." },
+  ],
+  h2_2_c1: [
+    { id: 'r_h2_2_1', authorName: 'Nina Park', timestamp: '10:25 AM', body: "We have a 16.0 in the device lab, second shelf. Ask Maya if you can't find it." },
+    { id: 'r_h2_2_2', authorName: 'Raj Patel', timestamp: '10:40 AM', body: "Found it. Testing now." },
+  ],
+  h3_1_c1: [
+    { id: 'r_h3_1_1', authorName: 'AI', timestamp: '10:01 AM', body: "There are several common approaches to liveness verification:\n\n- Active liveness: user performs an action (blink, smile, turn head)\n- Passive liveness: analysis of a single selfie for depth cues and texture\n- Hybrid: combines passive analysis with a simple active prompt\n- Document + selfie matching: compares ID photo to live capture\n\nPassive liveness has the best UX (no instructions needed) but lower security guarantees. Active liveness is more secure but creates the friction you're seeing." },
+    { id: 'r_h3_1_2', authorName: 'Greg Bothman', timestamp: '10:08 AM', body: "Our current SDK uses active liveness. The 3.4.2 upgrade improves the prompts but it's still active. Is there a viable passive option we could evaluate?" },
+    { id: 'r_h3_1_3', authorName: 'AI', timestamp: '10:09 AM', body: "SDK 3.4.2 does include a passive mode flag, though it's marked as beta. You could run passive for low-risk accounts and fall back to active for higher-risk ones. That would reduce friction for the majority of users while maintaining security where it matters." },
+    { id: 'r_h3_1_4', authorName: 'Greg Bothman', timestamp: '10:15 AM', body: "That's a good angle. I'll propose the SDK upgrade with passive-first as the recommendation. Thanks." },
+  ],
+  h3_2_c1: [
+    { id: 'r_h3_2_1', authorName: 'Alice Curtis', timestamp: '11:40 AM', body: "Honestly I went back and forth. The animation does show the correct head position more clearly, but it autoplays and some users will find that distracting or miss it entirely." },
+    { id: 'r_h3_2_2', authorName: 'Greg Bothman', timestamp: '11:48 AM', body: "What if we did static illustrations but with a small 'See how' link that plays the animation on tap? Best of both." },
+    { id: 'r_h3_2_3', authorName: 'Alice Curtis', timestamp: '11:55 AM', body: "I like that. Keeps the default simple but gives users a way to get more help if they need it. Let me mock that up." },
+    { id: 'r_h3_2_4', authorName: 'Greg Bothman', timestamp: '12:05 PM', body: "Great. Once you have the mock we can share it in the topic. I think Jake will be on board." },
+    { id: 'r_h3_2_5', authorName: 'Alice Curtis', timestamp: '1:30 PM', body: "Mock is done. Option A with the 'See how' link. Looks clean." },
+    { id: 'r_h3_2_6', authorName: 'Greg Bothman', timestamp: '1:35 PM', body: "Perfect. Posting to the topic now." },
+  ],
+  h9_1_c1: [
+    { id: 'r_h9_1_1', authorName: 'Jake Walter', timestamp: '11:45 AM', body: "Definitely the first option. Users want to feel like they've arrived somewhere, not that there's more onboarding ahead." },
+    { id: 'r_h9_1_2', authorName: 'Alice Curtis', timestamp: '11:52 AM', body: "Agreed. The contextual overlay feels like we're not confident the product is self-explanatory. 'Go to dashboard' is a clean exit." },
+    { id: 'r_h9_1_3', authorName: 'Jake Walter', timestamp: '12:00 PM', body: "The 'Take a tour' secondary is smart though. Catches users who do want more guidance without forcing everyone through it." },
   ],
 }

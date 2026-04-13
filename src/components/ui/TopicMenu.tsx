@@ -37,7 +37,6 @@ export function TopicMenu({ topics, highlight, onSelect, onHighlightChange }: To
             <TopicState
               type="topic"
               status={topic.isResolved ? 'resolved' : 'unresolved'}
-              isPrivate={topic.isPrivate}
             />
 
             <div className="flex-1 min-w-0 text-[14px] font-normal leading-[1.4] text-text-primary truncate">

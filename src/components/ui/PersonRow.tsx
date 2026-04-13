@@ -8,7 +8,6 @@ interface PersonRowProps {
   name: string
   type?: TopicStateType
   topicStatus?: TopicStateStatus
-  isPrivate?: boolean
   isUnread?: boolean
   isSelected?: boolean
   avatarSrc?: string
@@ -21,7 +20,6 @@ export function PersonRow({
   name,
   type = 'topic',
   topicStatus = 'unresolved',
-  isPrivate = false,
   isUnread = false,
   isSelected = false,
   avatarSrc,
@@ -45,7 +43,6 @@ export function PersonRow({
       <TopicState
         type={type}
         status={type === 'topic' ? topicStatus : 'default'}
-        isPrivate={isPrivate}
         avatarSrc={avatarSrc}
         memberCount={memberCount}
       />

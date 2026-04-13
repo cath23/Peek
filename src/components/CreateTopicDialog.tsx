@@ -1,31 +1,27 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { IconX, IconLock, IconEye, IconSearch } from '@tabler/icons-react'
+import { IconX, IconSearch } from '@tabler/icons-react'
 import { IconButton } from './ui/IconButton'
 import { Button } from './ui/Button'
-import { cn } from '@/lib/utils'
 
 interface CreateTopicDialogProps {
   defaultTitle?: string
   defaultDescription?: string
-  defaultPrivacy?: 'private' | 'public'
-  /** Label for the confirm button. Defaults to "Create topic". Use "Publish" for make-public flow. */
+  /** Label for the confirm button. Defaults to "Create topic". */
   confirmLabel?: string
-  onConfirm: (data: { title: string; description: string; privacy: 'private' | 'public' }) => void
+  onConfirm: (data: { title: string; description: string }) => void
   onCancel: () => void
 }
 
 export function CreateTopicDialog({
   defaultTitle = '',
   defaultDescription = '',
-  defaultPrivacy = 'private',
   confirmLabel = 'Create topic',
   onConfirm,
   onCancel,
 }: CreateTopicDialogProps) {
   const [title, setTitle] = useState(defaultTitle)
   const [description, setDescription] = useState(defaultDescription)
-  const [privacy, setPrivacy] = useState<'private' | 'public'>(defaultPrivacy)
 
   const canConfirm = title.trim().length > 0
 
@@ -78,50 +74,6 @@ export function CreateTopicDialog({
               />
             </div>
 
-            {/* Privacy */}
-            <div className="flex flex-col gap-2">
-              <label className="text-input-label text-text-primary">Privacy</label>
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPrivacy('private')}
-                  className={cn(
-                    'flex flex-col gap-1 px-3 py-2 rounded-lg border text-left transition-colors cursor-pointer',
-                    privacy === 'private'
-                      ? 'bg-bg-selected border-accent-primary'
-                      : 'bg-transparent border-border-default hover:bg-bg-hover'
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <IconLock size={16} stroke={1.5} className="text-text-secondary shrink-0" />
-                    <span className="text-body-2 text-text-primary">Private</span>
-                  </div>
-                  <span className="text-caption text-text-secondary pl-6">
-                    Only you and invited members can see
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPrivacy('public')}
-                  className={cn(
-                    'flex flex-col gap-1 px-3 py-2 rounded-lg border text-left transition-colors cursor-pointer',
-                    privacy === 'public'
-                      ? 'bg-bg-selected border-accent-primary'
-                      : 'bg-transparent border-border-default hover:bg-bg-hover'
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <IconEye size={16} stroke={1.5} className="text-text-secondary shrink-0" />
-                    <span className="text-body-2 text-text-primary">Public</span>
-                  </div>
-                  <span className="text-caption text-text-secondary pl-6">
-                    Anyone in the organization can see
-                  </span>
-                </button>
-              </div>
-            </div>
-
             {/* Invite people or teams */}
             <div className="flex flex-col gap-2">
               <label className="text-input-label text-text-primary">
@@ -149,7 +101,7 @@ export function CreateTopicDialog({
             <Button
               variant="primary"
               disabled={!canConfirm}
-              onClick={() => canConfirm && onConfirm({ title, description, privacy })}
+              onClick={() => canConfirm && onConfirm({ title, description })}
             >
               {confirmLabel}
             </Button>

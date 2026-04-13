@@ -1,21 +1,25 @@
+import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   IconCircleDashed,
   IconCircleCheck,
   IconPlus,
   IconArrowBack,
-  IconEye,
+  IconHighlight,
+  IconX,
 } from '@tabler/icons-react'
 import { Divider } from './ui/Divider'
+import { HighlightSwatch } from './ui/HighlightPill'
 import { cn } from '@/lib/utils'
+import { HIGHLIGHT_META, type HighlightType } from '@/data/topicData'
 
 interface ConversationMoreMenuProps {
   isTopic?: boolean
-  isPrivate?: boolean
   isResolved?: boolean
   showCreateTopic?: boolean
+  currentHighlight?: HighlightType
+  onHighlight?: (type: HighlightType | undefined) => void
   onCreateTopic?: () => void
   onRevertToConversation?: () => void
-  onMakePublic?: () => void
   onResolve?: () => void
   onReopen?: () => void
   onOpenWork?: () => void
@@ -65,12 +69,12 @@ function MenuItem({
 
 export function ConversationMoreMenu({
   isTopic = false,
-  isPrivate = false,
   isResolved = false,
   showCreateTopic = true,
+  currentHighlight,
+  onHighlight,
   onCreateTopic,
   onRevertToConversation,
-  onMakePublic,
   onResolve,
   onReopen,
   onOpenWork,
@@ -79,6 +83,28 @@ export function ConversationMoreMenu({
   onDelete,
   className,
 }: ConversationMoreMenuProps) {
+  const [showHighlightSub, setShowHighlightSub] = useState(false)
+  const [subOnLeft, setSubOnLeft] = useState(false)
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>(null)
+  const triggerRef = useRef<HTMLDivElement>(null)
+
+  const openSub = useCallback(() => {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    setShowHighlightSub(true)
+  }, [])
+
+  const closeSub = useCallback(() => {
+    closeTimer.current = setTimeout(() => setShowHighlightSub(false), 150)
+  }, [])
+
+  // Measure whether the submenu fits to the right; if not, flip to left
+  useEffect(() => {
+    if (!showHighlightSub || !triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const subWidth = 160 + 8 // w-[160px] + ml-1 gap
+    setSubOnLeft(rect.right + subWidth > window.innerWidth)
+  }, [showHighlightSub])
+
   return (
     <div
       className={cn(
@@ -98,13 +124,6 @@ export function ConversationMoreMenu({
               label="Revert to conversation"
               onClick={onRevertToConversation}
             />
-            {isPrivate && (
-              <MenuItem
-                icon={<IconEye size={16} stroke={1.5} className="text-text-secondary" />}
-                label="Make public"
-                onClick={onMakePublic}
-              />
-            )}
           </>
         ) : showCreateTopic ? (
           <MenuItem
@@ -134,6 +153,59 @@ export function ConversationMoreMenu({
           label="Open work"
           onClick={onOpenWork}
         />
+
+        {onHighlight && (
+          <div className="relative">
+            <div
+              ref={triggerRef}
+              className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-bg-hover w-full"
+              onMouseEnter={openSub}
+              onMouseLeave={closeSub}
+            >
+              <IconHighlight size={16} stroke={1.5} className="text-text-secondary shrink-0" />
+              <span className="flex-1 text-sm text-text-secondary">
+                {currentHighlight ? 'Change highlight' : 'Mark as Highlight'}
+              </span>
+              <span className="text-text-muted text-xs">›</span>
+            </div>
+            {showHighlightSub && (
+              <div
+                className={cn(
+                  'absolute top-0 bg-bg-elevated border border-border-default rounded-lg shadow-lg w-[160px] p-2 z-50',
+                  subOnLeft ? 'right-full mr-1' : 'left-full ml-1'
+                )}
+                onMouseEnter={openSub}
+                onMouseLeave={closeSub}
+              >
+                {(['insight', 'concern', 'conclusion', 'question', 'summary'] as HighlightType[]).map((type) => (
+                  <div
+                    key={type}
+                    className={cn(
+                      'flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-bg-hover',
+                      currentHighlight === type && 'bg-bg-hover'
+                    )}
+                    onClick={() => onHighlight(type)}
+                  >
+                    <HighlightSwatch type={type} />
+                    <span className="text-sm text-text-secondary">{HIGHLIGHT_META[type].label}</span>
+                  </div>
+                ))}
+                {currentHighlight && (
+                  <>
+                    <div className="h-px bg-border-subtle mx-1 my-1" />
+                    <div
+                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-bg-hover"
+                      onClick={() => onHighlight(undefined)}
+                    >
+                      <IconX size={14} stroke={1.5} className="text-text-muted shrink-0" />
+                      <span className="text-sm text-text-secondary">Remove</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <Divider className="mx-0" />

@@ -4,6 +4,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { PeekMention, UrgentMention, TopicMention, FileMention, isSuggestionActive } from '@/extensions/mention'
 import { ResolutionBlock, extractResolution } from '@/extensions/resolution'
+import { HighlightTag, extractHighlightType } from '@/extensions/highlight'
 import {
   IconMoodPlus,
   IconDotsVertical,
@@ -11,13 +12,13 @@ import {
   IconSquareForbid2,
   IconCircleDashed,
   IconCircleCheck,
-  IconLockFilled,
   IconBrandGithub,
   IconFile,
   IconFileTypePdf,
   IconPhoto,
   IconTable,
   IconPresentation,
+  IconX,
 } from '@tabler/icons-react'
 import figmaIcon from '@/assets/figma icon.svg'
 import linearIcon from '@/assets/linear icon.svg'
@@ -30,6 +31,8 @@ import { PEOPLE } from '@/data/peopleData'
 import { TOPICS, type ReactionData } from '@/data/topicData'
 import { APP_FILES, DOCUMENT_FILES } from '@/data/filesData'
 import { cn } from '@/lib/utils'
+import { HighlightPill, HighlightSwatch } from './ui/HighlightPill'
+import { HIGHLIGHT_META, type HighlightType } from '@/data/topicData'
 
 // ── Inline rendering (shared with ConversationCard) ──
 
@@ -64,11 +67,6 @@ function renderWithMentions(text: string): React.ReactNode {
                     <IconCircleCheck size={16} stroke={1.5} className="text-success-default" />
                   ) : (
                     <IconCircleDashed size={16} stroke={1.5} className="text-text-secondary" />
-                  )}
-                  {topic.isPrivate && (
-                    <span className="absolute left-[9px] top-[7px] bg-bg-active rounded-full p-[0.5px]">
-                      <IconLockFilled size={8} className="text-text-primary" />
-                    </span>
                   )}
                 </span>
                 <span>{title}</span>
@@ -219,7 +217,7 @@ function parseInlineContent(line: string): Record<string, unknown>[] {
       const title = part.slice(1, -1)
       const topic = TOPICS.find((t) => t.title === title)
       if (topic) {
-        content.push({ type: 'topicMention', attrs: { id: topic.id, label: title, isPrivate: topic.isPrivate, isResolved: topic.isResolved } })
+        content.push({ type: 'topicMention', attrs: { id: topic.id, label: title, isResolved: topic.isResolved } })
       } else {
         const appFile = APP_FILES.find((f) => f.title === title)
         const docFile = DOCUMENT_FILES.find((f) => f.title === title)
@@ -270,7 +268,8 @@ function textToTiptapContent(text: string) {
 function serializeInline(node: { forEach: (cb: (child: { type: { name: string }; attrs: Record<string, string>; text?: string }) => void) => void }): string {
   let text = ''
   node.forEach((child) => {
-    if (child.type.name === 'hardBreak') text += '\n'
+    if (child.type.name === 'highlightTag') { /* skip */ }
+    else if (child.type.name === 'hardBreak') text += '\n'
     else if (child.type.name === 'mention') text += `@${child.attrs.label}`
     else if (child.type.name === 'urgentMention') text += `!@${child.attrs.label}`
     else if (child.type.name === 'topicMention') text += `[${child.attrs.label}] `
@@ -297,9 +296,37 @@ function serializeTiptapToText(editor: ReturnType<typeof useEditor>): string {
   return lines.join('\n').trim()
 }
 
-// ── Reply More Menu (simplified — edit + delete only) ──
+// ── Reply More Menu ──
 
-function ReplyMoreMenu({ onEdit, onDelete, className }: { onEdit?: () => void; onDelete?: () => void; className?: string }) {
+function ReplyMoreMenu({ onEdit, onDelete, currentHighlight, onHighlight, className }: {
+  onEdit?: () => void
+  onDelete?: () => void
+  currentHighlight?: HighlightType
+  onHighlight?: (type: HighlightType | undefined) => void
+  className?: string
+}) {
+  const [showHighlightSub, setShowHighlightSub] = useState(false)
+  const [subOnLeft, setSubOnLeft] = useState(false)
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>(null)
+  const triggerRef = useRef<HTMLDivElement>(null)
+
+  const openSub = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    setShowHighlightSub(true)
+  }
+
+  const closeSub = () => {
+    closeTimer.current = setTimeout(() => setShowHighlightSub(false), 150)
+  }
+
+  // Measure whether the submenu fits to the right; if not, flip to left
+  useEffect(() => {
+    if (!showHighlightSub || !triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    const subWidth = 160 + 8
+    setSubOnLeft(rect.right + subWidth > window.innerWidth)
+  }, [showHighlightSub])
+
   return (
     <div className={cn('bg-bg-elevated border border-border-default rounded-lg shadow-lg w-[180px] p-2 flex flex-col gap-2', className)}>
       <div className="flex flex-col">
@@ -309,6 +336,57 @@ function ReplyMoreMenu({ onEdit, onDelete, className }: { onEdit?: () => void; o
         >
           <span className="flex-1 text-sm text-text-secondary">Edit message</span>
         </div>
+        {onHighlight && (
+          <div className="relative">
+            <div
+              ref={triggerRef}
+              className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-bg-hover w-full"
+              onMouseEnter={openSub}
+              onMouseLeave={closeSub}
+            >
+              <span className="flex-1 text-sm text-text-secondary">
+                {currentHighlight ? 'Change highlight' : 'Mark as Highlight'}
+              </span>
+              <span className="text-text-muted text-xs">›</span>
+            </div>
+            {showHighlightSub && (
+              <div
+                className={cn(
+                  'absolute top-0 bg-bg-elevated border border-border-default rounded-lg shadow-lg w-[160px] p-2 z-50',
+                  subOnLeft ? 'right-full mr-1' : 'left-full ml-1'
+                )}
+                onMouseEnter={openSub}
+                onMouseLeave={closeSub}
+              >
+                {(['insight', 'concern', 'conclusion', 'question', 'summary'] as HighlightType[]).map((type) => (
+                  <div
+                    key={type}
+                    className={cn(
+                      'flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-bg-hover',
+                      currentHighlight === type && 'bg-bg-hover'
+                    )}
+                    onClick={() => onHighlight(type)}
+                  >
+                    <HighlightSwatch type={type} />
+                    <span className="text-sm text-text-secondary">{HIGHLIGHT_META[type].label}</span>
+                  </div>
+                ))}
+                {currentHighlight && (
+                  <>
+                    <div className="h-px bg-border-subtle mx-1 my-1" />
+                    <div
+                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-bg-hover"
+                      onClick={() => onHighlight(undefined)}
+                    >
+                      <IconX size={14} stroke={1.5} className="text-text-muted shrink-0" />
+                      <span className="text-sm text-text-secondary">Remove</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <Divider className="mx-0" />
       <div
@@ -329,7 +407,10 @@ interface ThreadReplyCardProps {
   timestamp: string
   body: string
   reactions?: ReactionData[]
+  highlightType?: HighlightType
+  onHighlightChange?: (type: HighlightType | undefined) => void
   onDelete?: () => void
+  onBodyChange?: (newBody: string) => void
   className?: string
 }
 
@@ -339,7 +420,10 @@ export function ThreadReplyCard({
   timestamp,
   body,
   reactions,
+  highlightType,
+  onHighlightChange,
   onDelete,
+  onBodyChange,
   className,
 }: ThreadReplyCardProps) {
   const [isHovered, setIsHovered] = useState(false)
@@ -349,12 +433,20 @@ export function ThreadReplyCard({
   const moreButtonRef = useRef<HTMLDivElement>(null)
 
   const [reactionsState, setReactionsState] = useState<ReactionData[]>(reactions ?? [])
+  const [highlightState, setHighlightState] = useState<HighlightType | undefined>(highlightType)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
+  const [reactionPickerPos, setReactionPickerPos] = useState<{ top: number; right: number } | null>(null)
+  const reactButtonRef = useRef<HTMLDivElement>(null)
+  const reactionPickerRef = useRef<HTMLDivElement>(null)
 
   const [bodyState, setBodyState] = useState(body)
+  // Sync body from prop when it changes externally
+  useEffect(() => { setBodyState(body) }, [body])
+  useEffect(() => { setHighlightState(highlightType) }, [highlightType])
   const [isEditing, setIsEditing] = useState(false)
   const [editEmpty, setEditEmpty] = useState(false)
   const [editHasUrgent, setEditHasUrgent] = useState(false)
+  const [editHasHighlight, setEditHasHighlight] = useState(false)
 
   const editSaveFnRef = useRef<() => void>(() => {})
   const editCancelFnRef = useRef<() => void>(() => {})
@@ -368,7 +460,7 @@ export function ThreadReplyCard({
         blockquote: false, codeBlock: false, horizontalRule: false, heading: false,
         hardBreak: false, trailingNode: false,
       }),
-      PeekMention, UrgentMention, TopicMention, FileMention, ResolutionBlock,
+      PeekMention, UrgentMention, TopicMention, FileMention, ResolutionBlock, HighlightTag,
     ],
     editorProps: {
       attributes: {
@@ -414,8 +506,13 @@ export function ThreadReplyCard({
         requestAnimationFrame(() => { editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph' }] }) })
       }
       let urgent = false
-      editor.state.doc.descendants((node) => { if (node.type.name === 'urgentMention') urgent = true })
+      let highlight = false
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === 'urgentMention') urgent = true
+        if (node.type.name === 'highlightTag') highlight = true
+      })
       setEditHasUrgent(urgent)
+      setEditHasHighlight(highlight)
     },
   })
 
@@ -424,7 +521,20 @@ export function ThreadReplyCard({
   useEffect(() => {
     if (!editEditor) return
     if (isEditing) {
-      editEditor.commands.setContent(textToTiptapContent(bodyState))
+      const content = textToTiptapContent(bodyState)
+      // If message has a highlight, prepend the tag to the first paragraph
+      if (highlightState && content.content && content.content.length > 0) {
+        const first = content.content[0]
+        if (first.type === 'paragraph') {
+          const existing = (first.content ?? []) as Record<string, unknown>[]
+          first.content = [
+            { type: 'highlightTag', attrs: { highlightType: highlightState } },
+            { type: 'text', text: ' ' },
+            ...existing,
+          ]
+        }
+      }
+      editEditor.commands.setContent(content)
       setTimeout(() => editEditor.commands.focus('end'), 0)
     } else {
       editEditor.commands.clearContent()
@@ -461,7 +571,14 @@ export function ThreadReplyCard({
   const handleEditSave = () => {
     if (!editEditor) return
     const trimmed = serializeTiptapToText(editEditor)
-    if (trimmed) setBodyState(trimmed)
+    if (trimmed) {
+      setBodyState(trimmed)
+      onBodyChange?.(trimmed)
+    }
+    // Preserve highlight type from edit
+    const hl = extractHighlightType(editEditor)
+    setHighlightState(hl)
+    onHighlightChange?.(hl)
     setIsEditing(false)
   }
 
@@ -471,6 +588,40 @@ export function ThreadReplyCard({
   editCancelFnRef.current = handleEditCancel
 
   const handleDelete = () => { setShowMoreMenu(false); onDelete?.() }
+
+  const handleHighlightChange = (type: HighlightType | undefined) => {
+    setHighlightState(type)
+    onHighlightChange?.(type)
+    setShowMoreMenu(false)
+    setMoreMenuPos(null)
+    setIsHovered(false)
+  }
+
+  const openReactionPicker = () => {
+    if (showReactionPicker) {
+      setShowReactionPicker(false)
+      setReactionPickerPos(null)
+      return
+    }
+    const btn = reactButtonRef.current?.getBoundingClientRect()
+    if (btn) {
+      setReactionPickerPos({ top: btn.top - 4, right: window.innerWidth - btn.right })
+      setShowReactionPicker(true)
+    }
+  }
+
+  // Close reaction picker on outside click
+  useEffect(() => {
+    if (!showReactionPicker) return
+    const close = (e: MouseEvent) => {
+      if (reactionPickerRef.current?.contains(e.target as Node)) return
+      if (reactButtonRef.current?.contains(e.target as Node)) return
+      setShowReactionPicker(false)
+      setReactionPickerPos(null)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [showReactionPicker])
 
   const handleReact = (emoji: string) => {
     setReactionsState((prev) => {
@@ -501,14 +652,17 @@ export function ThreadReplyCard({
           className
         )}
         onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => { setIsHovered(false); setShowReactionPicker(false) }}
+        onMouseLeave={() => {
+          if (showReactionPicker || showMoreMenu) return
+          setIsHovered(false)
+        }}
       >
         {isEditing ? (
           <div className="p-2">
             <div className="flex items-start gap-2">
               <Avatar size={24} src={authorAvatarSrc} alt={authorName} className="shrink-0 mt-3" />
               <div className="flex-1 min-w-0 bg-bg-inset border border-border-default rounded-lg p-3 flex flex-col gap-4">
-                <div className={cn('relative min-h-[20px] transition-all', editHasUrgent && 'border-l-[4px] border-border-strong pl-2')}>
+                <div className={cn('relative min-h-[20px] transition-all', (editHasUrgent || editHasHighlight) && 'border-l-[4px] border-border-strong pl-2')}>
                   <EditorContent editor={editEditor} />
                   {editEmpty && (
                     <div className="absolute inset-0 pointer-events-none flex items-center text-sm text-text-muted leading-[1.4]">
@@ -536,9 +690,10 @@ export function ThreadReplyCard({
                 <Avatar size={24} src={authorAvatarSrc} alt={authorName} />
                 <span className="text-body-2-strong text-text-primary whitespace-nowrap">{authorName}</span>
                 <span className="text-caption text-text-muted whitespace-nowrap">{timestamp}</span>
+                {highlightState && <HighlightPill type={highlightState} />}
               </div>
             </div>
-            <div className="pl-8 pr-2 pt-1 pb-2 w-full">
+            <div className="pl-8 pr-2 pt-1 pb-2 w-full overflow-hidden break-words">
               <MessageBody body={bodyState} />
             </div>
             {reactionsState.length > 0 && (
@@ -555,20 +710,17 @@ export function ThreadReplyCard({
         {isHovered && !isEditing && (
           <div className="absolute right-[3px] top-[3px]">
             <div className="bg-bg-elevated border border-border-subtle rounded-sm shadow-sm flex items-start gap-1 p-1">
-              <IconButton tooltip="React" aria-label="React" onClick={() => setShowReactionPicker((v) => !v)}>
-                <IconMoodPlus size={16} stroke={1.5} />
-              </IconButton>
+              <div ref={reactButtonRef} className="inline-flex">
+                <IconButton tooltip="React" aria-label="React" onClick={openReactionPicker}>
+                  <IconMoodPlus size={16} stroke={1.5} />
+                </IconButton>
+              </div>
               <div ref={moreButtonRef} className="inline-flex">
                 <IconButton tooltip="More actions" aria-label="More actions" onClick={handleMore}>
                   <IconDotsVertical size={16} stroke={1.5} />
                 </IconButton>
               </div>
             </div>
-            {showReactionPicker && (
-              <div className="absolute right-0 bottom-full mb-1 z-50" onMouseLeave={() => setShowReactionPicker(false)}>
-                <ReactionPicker onSelect={handleReact} />
-              </div>
-            )}
           </div>
         )}
 
@@ -578,7 +730,7 @@ export function ThreadReplyCard({
             <div
               ref={moreMenuRef}
               onMouseDown={(e) => e.stopPropagation()}
-              onMouseLeave={() => { setShowMoreMenu(false); setMoreMenuPos(null) }}
+              onMouseLeave={() => { setShowMoreMenu(false); setMoreMenuPos(null); setIsHovered(false) }}
               style={{
                 position: 'fixed',
                 ...(moreMenuPos.top !== undefined ? { top: moreMenuPos.top } : {}),
@@ -587,11 +739,36 @@ export function ThreadReplyCard({
                 zIndex: 50,
               }}
             >
-              <ReplyMoreMenu onEdit={handleEditStart} onDelete={handleDelete} />
+              <ReplyMoreMenu
+                onEdit={handleEditStart}
+                onDelete={handleDelete}
+                currentHighlight={highlightState}
+                onHighlight={handleHighlightChange}
+              />
             </div>,
             document.body
           )}
       </div>
+
+      {/* Reaction picker (portalled) */}
+      {showReactionPicker && reactionPickerPos &&
+        createPortal(
+          <div
+            ref={reactionPickerRef}
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseLeave={() => { setShowReactionPicker(false); setReactionPickerPos(null); setIsHovered(false) }}
+            style={{
+              position: 'fixed',
+              top: reactionPickerPos.top,
+              right: reactionPickerPos.right,
+              transform: 'translateY(-100%)',
+              zIndex: 50,
+            }}
+          >
+            <ReactionPicker onSelect={handleReact} />
+          </div>,
+          document.body
+        )}
     </>
   )
 }

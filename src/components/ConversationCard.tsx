@@ -4,6 +4,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { PeekMention, UrgentMention, TopicMention, FileMention, isSuggestionActive } from '@/extensions/mention'
 import { ResolutionBlock, extractResolution } from '@/extensions/resolution'
+import { HighlightTag, extractHighlightType } from '@/extensions/highlight'
 import {
   IconMessage2,
   IconAlertSquareRounded,
@@ -11,7 +12,6 @@ import {
   IconArrowNarrowRight,
   IconCircleDashed,
   IconCircleCheck,
-  IconLockFilled,
   IconPaperclip,
   IconSquareForbid2,
   IconBrandGithub,
@@ -34,8 +34,9 @@ import ReactionPicker from './ReactionPicker'
 import { ResolveDialog } from './ResolveDialog'
 import { CreateTopicDialog } from './CreateTopicDialog'
 import { PEOPLE } from '@/data/peopleData'
-import { TOPICS, type ReactionData } from '@/data/topicData'
+import { TOPICS, type ReactionData, type HighlightType } from '@/data/topicData'
 import { APP_FILES, DOCUMENT_FILES } from '@/data/filesData'
+import { HighlightPill } from './ui/HighlightPill'
 import { cn } from '@/lib/utils'
 
 // Build an exact-name regex from PEOPLE so we never over-match into surrounding text.
@@ -77,7 +78,6 @@ function parseInlineContent(line: string): Record<string, unknown>[] {
           attrs: {
             id: topic.id,
             label: title,
-            isPrivate: topic.isPrivate,
             isResolved: topic.isResolved,
           },
         })
@@ -156,7 +156,8 @@ function textToTiptapContent(text: string) {
 function serializeInline(node: { forEach: (cb: (child: { type: { name: string }; attrs: Record<string, string>; text?: string }) => void) => void }): string {
   let text = ''
   node.forEach((child) => {
-    if (child.type.name === 'hardBreak') {
+    if (child.type.name === 'highlightTag') { /* skip */ }
+    else if (child.type.name === 'hardBreak') {
       text += '\n'
     } else if (child.type.name === 'mention') {
       text += `@${child.attrs.label}`
@@ -222,11 +223,6 @@ function renderWithMentions(text: string): React.ReactNode {
                     <IconCircleCheck size={16} stroke={1.5} className="text-success-default" />
                   ) : (
                     <IconCircleDashed size={16} stroke={1.5} className="text-text-secondary" />
-                  )}
-                  {topic.isPrivate && (
-                    <span className="absolute left-[9px] top-[7px] bg-bg-active rounded-full p-[0.5px]">
-                      <IconLockFilled size={8} className="text-text-primary" />
-                    </span>
                   )}
                 </span>
                 <span>{title}</span>
@@ -375,7 +371,9 @@ interface ConversationCardProps {
   resolutionMessage?: string
   isTopic?: boolean
   topicTitle?: string
-  isPrivate?: boolean
+  highlightType?: HighlightType
+  onHighlightChange?: (type: HighlightType | undefined) => void
+  onBodyChange?: (body: string) => void
   showCreateTopic?: boolean
   onResolvedChange?: (resolved: boolean) => void
   onDelete?: () => void
@@ -401,7 +399,9 @@ export function ConversationCard({
   resolutionMessage: initialResolutionMessage = '',
   isTopic: initialIsTopic = false,
   topicTitle: initialTopicTitle = '',
-  isPrivate: initialIsPrivate = false,
+  highlightType,
+  onHighlightChange,
+  onBodyChange,
   showCreateTopic = true,
   onResolvedChange,
   onDelete,
@@ -424,6 +424,9 @@ export function ConversationCard({
   const [reactionsState, setReactionsState] = useState<ReactionData[]>(reactions ?? [])
   const [showReactionPicker, setShowReactionPicker] = useState(false)
 
+  // Highlight
+  const [highlightState, setHighlightState] = useState<HighlightType | undefined>(highlightType)
+
   // Body — mutable after edit
   const [bodyState, setBodyState] = useState(body)
 
@@ -431,6 +434,7 @@ export function ConversationCard({
   const [isEditing, setIsEditing] = useState(false)
   const [editEmpty, setEditEmpty] = useState(false)
   const [editHasUrgent, setEditHasUrgent] = useState(false)
+  const [editHasHighlight, setEditHasHighlight] = useState(false)
 
   const editSaveFnRef = useRef<() => void>(() => {})
   const editCancelFnRef = useRef<() => void>(() => {})
@@ -449,6 +453,7 @@ export function ConversationCard({
       TopicMention,
       FileMention,
       ResolutionBlock,
+      HighlightTag,
     ],
     editorProps: {
       attributes: {
@@ -508,10 +513,13 @@ export function ConversationCard({
         })
       }
       let urgent = false
+      let highlight = false
       editor.state.doc.descendants((node) => {
         if (node.type.name === 'urgentMention') urgent = true
+        if (node.type.name === 'highlightTag') highlight = true
       })
       setEditHasUrgent(urgent)
+      setEditHasHighlight(highlight)
     },
   })
 
@@ -521,7 +529,20 @@ export function ConversationCard({
   useEffect(() => {
     if (!editEditor) return
     if (isEditing) {
-      editEditor.commands.setContent(textToTiptapContent(bodyState))
+      const content = textToTiptapContent(bodyState)
+      // If message has a highlight, prepend the tag to the first paragraph
+      if (highlightState && content.content && content.content.length > 0) {
+        const first = content.content[0]
+        if (first.type === 'paragraph') {
+          const existing = (first.content ?? []) as Record<string, unknown>[]
+          first.content = [
+            { type: 'highlightTag', attrs: { highlightType: highlightState } },
+            { type: 'text', text: ' ' },
+            ...existing,
+          ]
+        }
+      }
+      editEditor.commands.setContent(content)
       // Focus and move cursor to end
       setTimeout(() => {
         editEditor.commands.focus('end')
@@ -564,9 +585,7 @@ export function ConversationCard({
   // Topic state
   const [isTopic, setIsTopic] = useState(initialIsTopic)
   const [topicTitle, setTopicTitle] = useState(initialTopicTitle)
-  const [topicPrivate, setTopicPrivate] = useState(initialIsPrivate)
   const [showTopicDialog, setShowTopicDialog] = useState(false)
-  const [topicDialogPrivacy, setTopicDialogPrivacy] = useState<'private' | 'public'>('private')
 
   const handleMore = (rect: DOMRect) => {
     // Toggle
@@ -608,6 +627,14 @@ export function ConversationCard({
     onDelete?.()
   }
 
+  const handleConvHighlight = (type: HighlightType | undefined) => {
+    setHighlightState(type)
+    onHighlightChange?.(type)
+    setShowMoreMenu(false)
+    setMoreMenuPos(null)
+    setIsHovered(false)
+  }
+
   const handleEditStart = () => {
     setIsEditing(true)
     setShowMoreMenu(false)
@@ -617,13 +644,20 @@ export function ConversationCard({
     if (!editEditor) return
     const trimmed = serializeTiptapToText(editEditor)
     const resolution = extractResolution(editEditor)
-    if (trimmed) setBodyState(trimmed)
+    if (trimmed) {
+      setBodyState(trimmed)
+      onBodyChange?.(trimmed)
+    }
     if (resolution.hasResolution) {
       setResolved(true)
       setResolvedBy('You')
       setResolutionMsg(resolution.resolutionMessage)
       onResolvedChange?.(true)
     }
+    // Preserve highlight type from edit
+    const hl = extractHighlightType(editEditor)
+    setHighlightState(hl)
+    onHighlightChange?.(hl)
     setIsEditing(false)
   }
 
@@ -633,28 +667,19 @@ export function ConversationCard({
   editCancelFnRef.current = handleEditCancel
 
   const openCreateTopic = () => {
-    setTopicDialogPrivacy('private')
     setShowMoreMenu(false)
     setShowTopicDialog(true)
   }
 
-  const openMakePublic = () => {
-    setTopicDialogPrivacy('public')
-    setShowMoreMenu(false)
-    setShowTopicDialog(true)
-  }
-
-  const handleTopicConfirm = (data: { title: string; description: string; privacy: 'private' | 'public' }) => {
+  const handleTopicConfirm = (data: { title: string; description: string }) => {
     setIsTopic(true)
     setTopicTitle(data.title)
-    setTopicPrivate(data.privacy === 'private')
     setShowTopicDialog(false)
   }
 
   const handleRevertToConversation = () => {
     setIsTopic(false)
     setTopicTitle('')
-    setTopicPrivate(false)
     setShowMoreMenu(false)
   }
 
@@ -691,7 +716,15 @@ export function ConversationCard({
           onClick && !isEditing && 'cursor-pointer',
           className
         )}
-        onClick={() => { if (!isEditing) onClick?.() }}
+        onClick={(e) => {
+          if (!onClick || isEditing) return
+          // Don't open thread when any overlay is active
+          if (showMoreMenu || showResolveDialog || showTopicDialog || showReactionPicker) return
+          // Don't open thread when clicking interactive children
+          const target = e.target as HTMLElement
+          if (target.closest('button, [role="button"], [data-interactive]')) return
+          onClick()
+        }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => { setIsHovered(false); setShowReactionPicker(false) }}
       >
@@ -703,7 +736,6 @@ export function ConversationCard({
               <TopicState
                 type="topic"
                 status={resolved ? 'resolved' : 'unresolved'}
-                isPrivate={topicPrivate}
               />
               <div className="w-px bg-border-default flex-1 min-h-[24px]" />
             </div>
@@ -754,7 +786,7 @@ export function ConversationCard({
               <div className="flex-1 min-w-0 bg-bg-inset border border-border-default rounded-lg p-3 flex flex-col gap-4">
                 <div className={cn(
                   'relative min-h-[20px] transition-all',
-                  editHasUrgent && 'border-l-[4px] border-border-strong pl-2'
+                  (editHasUrgent || editHasHighlight) && 'border-l-[4px] border-border-strong pl-2'
                 )}>
                   <EditorContent editor={editEditor} />
                   {editEmpty && (
@@ -805,6 +837,7 @@ export function ConversationCard({
               <Avatar size={24} src={authorAvatarSrc} alt={authorName} />
               <span className="text-body-2-strong text-text-primary whitespace-nowrap">{authorName}</span>
               <span className="text-caption text-text-muted whitespace-nowrap">{timestamp}</span>
+              {highlightState && <HighlightPill type={highlightState} />}
             </div>
             {hasNewMessage && !isUrgent && <Chip type="brand" label="1 new" />}
             {isUrgent && (
@@ -859,7 +892,7 @@ export function ConversationCard({
 
         {/* ── Quick menu on hover ── */}
         {isHovered && !isEditing && (
-          <div className="absolute right-[3px] top-[3px]">
+          <div className="absolute right-[3px] top-[3px]" onClick={(e) => e.stopPropagation()}>
             <ConversationQuickMenu
               isResolved={resolved}
               onReact={() => setShowReactionPicker((v) => !v)}
@@ -896,12 +929,12 @@ export function ConversationCard({
             >
               <ConversationMoreMenu
                 isTopic={isTopic}
-                isPrivate={topicPrivate}
                 isResolved={resolved}
                 showCreateTopic={showCreateTopic}
+                currentHighlight={highlightState}
+                onHighlight={handleConvHighlight}
                 onCreateTopic={openCreateTopic}
                 onRevertToConversation={handleRevertToConversation}
-                onMakePublic={openMakePublic}
                 onResolve={() => { setShowMoreMenu(false); setShowResolveDialog(true) }}
                 onReopen={handleReopen}
                 onEditMessage={!isTopic ? handleEditStart : undefined}
@@ -922,8 +955,6 @@ export function ConversationCard({
       {showTopicDialog && (
         <CreateTopicDialog
           defaultTitle={isTopic ? topicTitle : ''}
-          defaultPrivacy={topicDialogPrivacy}
-          confirmLabel={isTopic && topicDialogPrivacy === 'public' ? 'Publish' : 'Create topic'}
           onConfirm={handleTopicConfirm}
           onCancel={() => setShowTopicDialog(false)}
         />

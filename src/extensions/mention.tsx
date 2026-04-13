@@ -3,7 +3,7 @@ import { ReactRenderer, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/r
 import Mention from '@tiptap/extension-mention'
 import { type SuggestionOptions, type SuggestionProps } from '@tiptap/suggestion'
 import { type NodeViewProps } from '@tiptap/react'
-import { IconCircleDashed, IconCircleCheck, IconLockFilled, IconBrandGithub, IconFile, IconFileTypePdf, IconPhoto, IconTable, IconPresentation } from '@tabler/icons-react'
+import { IconCircleDashed, IconCircleCheck, IconBrandGithub, IconFile, IconFileTypePdf, IconPhoto, IconTable, IconPresentation } from '@tabler/icons-react'
 import { PEOPLE, type Person } from '@/data/peopleData'
 import { TOPICS } from '@/data/topicData'
 import { APP_FILES, DOCUMENT_FILES } from '@/data/filesData'
@@ -307,7 +307,7 @@ class FilesSuggestionPopup {
 }
 
 function TopicMentionView({ node }: NodeViewProps) {
-  const { label, isPrivate, isResolved } = node.attrs
+  const { label, isResolved } = node.attrs
   return (
     <NodeViewWrapper as="span" className="inline-flex items-center gap-1 rounded-sm px-1 bg-bg-active text-text-primary text-sm font-normal select-none cursor-default" style={{ verticalAlign: 'text-bottom', height: '1.4em' }}>
       <span className="relative inline-flex items-center justify-center w-4 h-4 shrink-0">
@@ -315,11 +315,6 @@ function TopicMentionView({ node }: NodeViewProps) {
           <IconCircleCheck size={16} stroke={1.5} className="text-success-default" />
         ) : (
           <IconCircleDashed size={16} stroke={1.5} className="text-text-secondary" />
-        )}
-        {isPrivate && (
-          <span className="absolute left-[9px] top-[7px] bg-bg-active rounded-full p-[0.5px]">
-            <IconLockFilled size={8} className="text-text-primary" />
-          </span>
         )}
       </span>
       <span>{label}</span>
@@ -337,7 +332,6 @@ export const TopicMention = Mention.extend({
     return {
       id: { default: null },
       label: { default: null },
-      isPrivate: { default: false },
       isResolved: { default: false },
     }
   },
@@ -396,7 +390,6 @@ export const TopicMention = Mention.extend({
               attrs: {
                 id: topic.id,
                 label: topic.title,
-                isPrivate: topic.isPrivate,
                 isResolved: topic.isResolved,
               },
             },

@@ -3,7 +3,6 @@ import {
   IconCircleCheck,
   IconUsers,
   IconBrackets,
-  IconLockFilled,
 } from '@tabler/icons-react'
 import { Avatar } from './Avatar'
 import { cn } from '@/lib/utils'
@@ -14,7 +13,6 @@ export type TopicStateStatus = 'unresolved' | 'resolved' | 'default'
 interface TopicStateProps {
   type: TopicStateType
   status?: TopicStateStatus
-  isPrivate?: boolean
   avatarSrc?: string
   memberCount?: number
   className?: string
@@ -23,7 +21,6 @@ interface TopicStateProps {
 export function TopicState({
   type,
   status = 'default',
-  isPrivate = false,
   avatarSrc,
   memberCount,
   className,
@@ -47,12 +44,6 @@ export function TopicState({
       ) : type === 'view' ? (
         <IconBrackets size={16} stroke={1.5} className="text-text-secondary" />
       ) : null}
-
-      {type === 'topic' && isPrivate && (
-        <div className="absolute left-[9px] top-[7px] bg-bg-surface rounded-full p-[1px]">
-          <IconLockFilled size={10} className="text-text-primary" />
-        </div>
-      )}
     </div>
   )
 }

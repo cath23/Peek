@@ -303,7 +303,6 @@ export const FilesMenu = forwardRef<FilesMenuRef, FilesMenuProps>(
                     <TopicState
                       type="topic"
                       status={item.data.isResolved ? 'resolved' : 'unresolved'}
-                      isPrivate={item.data.isPrivate}
                     />
                   </span>
                 )}
