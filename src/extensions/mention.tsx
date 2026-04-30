@@ -68,7 +68,7 @@ const MentionListWrapper = forwardRef<MentionListRef, MentionListProps>(
 MentionListWrapper.displayName = 'MentionListWrapper'
 
 // ─── Global flag: is a suggestion popup currently open? ───
-// Counter instead of boolean — multiple suggestion plugins (mention, urgent, topic)
+// Counter instead of boolean - multiple suggestion plugins (mention, urgent, topic)
 // can overlap during transitions, so we track how many are open.
 let _openCount = 0
 let _lastCloseTime = 0

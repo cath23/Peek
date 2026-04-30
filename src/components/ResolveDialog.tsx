@@ -24,7 +24,7 @@ export function ResolveDialog({ onResolve, onCancel }: ResolveDialogProps) {
           {/* Header */}
           <div className="h-12 flex items-center justify-between pl-5 pr-4 border-b border-border-subtle shrink-0">
             <span className="text-h4 text-text-primary">Resolve</span>
-            <IconButton aria-label="Close" onClick={onCancel}>
+            <IconButton tooltip="Close" aria-label="Close" onClick={onCancel}>
               <IconX size={16} stroke={1.5} />
             </IconButton>
           </div>

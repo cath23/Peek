@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react'
-import { IconStar, IconDotsVertical } from '@tabler/icons-react'
+import { IconStar, IconStarFilled, IconDotsVertical } from '@tabler/icons-react'
 import { TopicState } from './ui/TopicState'
 import { Avatar } from './ui/Avatar'
 import { IconButton } from './ui/IconButton'
@@ -15,20 +15,25 @@ interface ConversationHeaderProps {
   resolvedCount?: number
   /** Hide counts and members pill (e.g. when Huddles tab is active) */
   hideTopicMeta?: boolean
+  /** Topic participants — drives the avatars + count in the members pill */
+  members?: string[]
+  isStarred?: boolean
+  onToggleStarred?: () => void
   tabs?: ReactNode
   className?: string
 }
 
-/** 3 overlapping 24px avatars with border-bg-surface outline — matches Figma members component */
-function AvatarGroup() {
+/** Up to 3 overlapping 24px avatars with border-bg-surface outline - matches Figma members component */
+function AvatarGroup({ members }: { members: string[] }) {
+  const visible = members.slice(0, 3)
   return (
     <div className="flex items-center pr-2">
-      {[0, 1, 2].map((i) => (
+      {visible.map((name, i) => (
         <div
           key={i}
           className="-mr-2 relative shrink-0 size-6 rounded-sm overflow-hidden border-2 border-bg-surface"
         >
-          <Avatar size={24} />
+          <Avatar size={24} name={name} alt={name} />
         </div>
       ))}
     </div>
@@ -43,6 +48,9 @@ export function ConversationHeader({
   openCount = 0,
   resolvedCount = 0,
   hideTopicMeta = false,
+  members = [],
+  isStarred = false,
+  onToggleStarred,
   tabs,
   className,
 }: ConversationHeaderProps) {
@@ -56,6 +64,7 @@ export function ConversationHeader({
             <TopicState
               type="topic"
               status={isResolved ? 'resolved' : 'unresolved'}
+              iconClassName="text-text-primary"
             />
           ) : (
             <Avatar size={16} src={avatarSrc} alt={name} />
@@ -81,17 +90,27 @@ export function ConversationHeader({
               </div>
 
               {/* Members */}
-              <div className="bg-bg-elevated border border-border-default rounded-sm flex gap-2 items-center pl-[2px] pr-2 py-[2px]">
-                <AvatarGroup />
-                <span className="text-caption text-text-secondary">4</span>
-              </div>
+              {members.length > 0 && (
+                <div className="bg-bg-elevated border border-border-default rounded-sm flex gap-2 items-center pl-[2px] pr-2 py-[2px]">
+                  <AvatarGroup members={members} />
+                  <span className="text-caption text-text-secondary">{members.length}</span>
+                </div>
+              )}
             </>
           )}
 
           {/* Action buttons */}
           <div className="flex gap-1 items-center">
-            <IconButton tooltip="Favorite" aria-label="Favorite">
-              <IconStar size={16} stroke={1.5} />
+            <IconButton
+              tooltip={isStarred ? 'Remove from starred' : 'Add to starred'}
+              aria-label={isStarred ? 'Remove from starred' : 'Add to starred'}
+              onClick={onToggleStarred}
+            >
+              {isStarred ? (
+                <IconStarFilled size={16} className="text-warning-default" />
+              ) : (
+                <IconStar size={16} stroke={1.5} />
+              )}
             </IconButton>
             <IconButton tooltip="More actions" aria-label="More actions">
               <IconDotsVertical size={16} stroke={1.5} />

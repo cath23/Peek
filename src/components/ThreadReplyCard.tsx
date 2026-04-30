@@ -12,6 +12,7 @@ import {
   IconSquareForbid2,
   IconCircleDashed,
   IconCircleCheck,
+  IconChevronRight,
   IconBrandGithub,
   IconFile,
   IconFileTypePdf,
@@ -19,6 +20,7 @@ import {
   IconTable,
   IconPresentation,
   IconX,
+  IconAlertSquareRounded,
 } from '@tabler/icons-react'
 import figmaIcon from '@/assets/figma icon.svg'
 import linearIcon from '@/assets/linear icon.svg'
@@ -48,7 +50,14 @@ const _escapedBracketTitles = [
   .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   .sort((a, b) => b.length - a.length)
   .join('|')
-const MENTION_RE = new RegExp(`((?:!@|@)(?:${_escapedNames})|\\[(?:${_escapedBracketTitles})\\])`, 'g')
+// Captures: @FullName / !@FullName (PEOPLE), @lowercase-handle (teams/groups
+// like @backend-team, @devops), and [Topic Title] / [File Title] brackets.
+// The lookahead (?![a-zA-Z/]) prevents partial matches inside camelCase or
+// package paths (e.g. @testing-library/react is left as plain text).
+const MENTION_RE = new RegExp(
+  `((?:!@|@)(?:${_escapedNames})|@[a-z][a-z0-9-]+(?![a-zA-Z/])|\\[(?:${_escapedBracketTitles})\\])`,
+  'g'
+)
 
 function renderWithMentions(text: string): React.ReactNode {
   const parts = text.split(MENTION_RE)
@@ -347,7 +356,7 @@ function ReplyMoreMenu({ onEdit, onDelete, currentHighlight, onHighlight, classN
               <span className="flex-1 text-sm text-text-secondary">
                 {currentHighlight ? 'Change highlight' : 'Mark as Highlight'}
               </span>
-              <span className="text-text-muted text-xs">›</span>
+              <IconChevronRight size={16} stroke={1.5} className="text-text-muted shrink-0" />
             </div>
             {showHighlightSub && (
               <div
@@ -378,7 +387,7 @@ function ReplyMoreMenu({ onEdit, onDelete, currentHighlight, onHighlight, classN
                       className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-bg-hover"
                       onClick={() => onHighlight(undefined)}
                     >
-                      <IconX size={14} stroke={1.5} className="text-text-muted shrink-0" />
+                      <IconX size={16} stroke={1.5} className="text-text-secondary shrink-0" />
                       <span className="text-sm text-text-secondary">Remove</span>
                     </div>
                   </>
@@ -408,6 +417,8 @@ interface ThreadReplyCardProps {
   body: string
   reactions?: ReactionData[]
   highlightType?: HighlightType
+  isNew?: boolean
+  isUrgent?: boolean
   onHighlightChange?: (type: HighlightType | undefined) => void
   onDelete?: () => void
   onBodyChange?: (newBody: string) => void
@@ -421,6 +432,8 @@ export function ThreadReplyCard({
   body,
   reactions,
   highlightType,
+  isNew = false,
+  isUrgent = false,
   onHighlightChange,
   onDelete,
   onBodyChange,
@@ -643,12 +656,19 @@ export function ThreadReplyCard({
     <>
       <div
         className={cn(
-          'relative rounded-lg transition-colors',
+          'relative rounded-lg transition-colors border',
           isEditing
-            ? 'bg-bg-selected border border-accent-primary'
-            : isHovered
-              ? 'bg-bg-hover border border-border-default'
-              : 'bg-bg-surface border border-transparent',
+            ? 'bg-bg-selected border-accent-primary'
+            : cn(
+                isHovered ? 'bg-bg-hover' : 'bg-bg-surface',
+                isNew
+                  ? isUrgent
+                    ? 'border-warning-muted'
+                    : 'border-accent-muted'
+                  : isHovered
+                    ? 'border-border-default'
+                    : 'border-transparent'
+              ),
           className
         )}
         onMouseEnter={() => setIsHovered(true)}
@@ -672,8 +692,8 @@ export function ThreadReplyCard({
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1">
-                    <IconButton aria-label="Attach file"><IconPaperclip size={16} stroke={1.5} /></IconButton>
-                    <IconButton aria-label="Snooze"><IconSquareForbid2 size={16} stroke={1.5} /></IconButton>
+                    <IconButton tooltip="Attach file" aria-label="Attach file"><IconPaperclip size={16} stroke={1.5} /></IconButton>
+                    <IconButton tooltip="Snooze" aria-label="Snooze"><IconSquareForbid2 size={16} stroke={1.5} /></IconButton>
                   </div>
                   <div className="flex items-center gap-2">
                     <button onClick={handleEditCancel} className="h-6 px-1 text-xs font-medium text-text-primary border border-border-default rounded-md hover:bg-bg-active transition-colors cursor-pointer">Cancel</button>
@@ -684,14 +704,26 @@ export function ThreadReplyCard({
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-start p-2">
+          <div className="flex flex-col items-start pt-2 px-2">
             <div className="flex items-center gap-2 w-full">
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 flex-1 min-w-0">
                 <Avatar size={24} src={authorAvatarSrc} alt={authorName} />
                 <span className="text-body-2-strong text-text-primary whitespace-nowrap">{authorName}</span>
                 <span className="text-caption text-text-muted whitespace-nowrap">{timestamp}</span>
                 {highlightState && <HighlightPill type={highlightState} />}
               </div>
+              {isNew && !isUrgent && (
+                <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                  <div className="w-1.5 h-1.5 rounded-full bg-accent-primary" />
+                </div>
+              )}
+              {isNew && isUrgent && (
+                <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                  <div className="flex items-center p-0.5 rounded-full bg-warning-muted">
+                    <IconAlertSquareRounded size={12} stroke={2.5} className="text-warning-default" />
+                  </div>
+                </div>
+              )}
             </div>
             <div className="pl-8 pr-2 pt-1 pb-2 w-full overflow-hidden break-words">
               <MessageBody body={bodyState} />
@@ -706,9 +738,9 @@ export function ThreadReplyCard({
           </div>
         )}
 
-        {/* Quick menu — only react + more */}
+        {/* Quick menu - only react + more */}
         {isHovered && !isEditing && (
-          <div className="absolute right-[3px] top-[3px]">
+          <div className="absolute right-1 top-1">
             <div className="bg-bg-elevated border border-border-subtle rounded-sm shadow-sm flex items-start gap-1 p-1">
               <div ref={reactButtonRef} className="inline-flex">
                 <IconButton tooltip="React" aria-label="React" onClick={openReactionPicker}>

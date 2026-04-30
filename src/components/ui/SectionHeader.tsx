@@ -8,6 +8,8 @@ interface SectionHeaderProps {
   chevron?: boolean
   prop1stAction?: boolean
   prop2ndAction?: boolean
+  prop1stActionTooltip?: string
+  prop2ndActionTooltip?: string
   isExpanded?: boolean
   onToggle?: () => void
   onFirstAction?: () => void
@@ -20,6 +22,8 @@ export function SectionHeader({
   chevron = false,
   prop1stAction = false,
   prop2ndAction = false,
+  prop1stActionTooltip = 'Add',
+  prop2ndActionTooltip = 'Sort by',
   isExpanded = true,
   onToggle,
   onFirstAction,
@@ -60,7 +64,8 @@ export function SectionHeader({
         <div className="flex items-center gap-1">
           {prop2ndAction && (
             <IconButton
-              aria-label="Sort"
+              tooltip={prop2ndActionTooltip}
+              aria-label={prop2ndActionTooltip}
               onClick={(e) => { e.stopPropagation(); onSecondAction?.() }}
             >
               <IconSortDescending size={16} stroke={1.5} />
@@ -68,7 +73,8 @@ export function SectionHeader({
           )}
           {prop1stAction && (
             <IconButton
-              aria-label="Add"
+              tooltip={prop1stActionTooltip}
+              aria-label={prop1stActionTooltip}
               onClick={(e) => { e.stopPropagation(); onFirstAction?.() }}
             >
               <IconPlus size={16} stroke={1.5} />

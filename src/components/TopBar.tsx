@@ -4,6 +4,7 @@ import { IconMenu2, IconHelpCircle, IconSun, IconMoon, IconDeviceDesktop, IconCh
 import { IconButton } from './ui/IconButton'
 import { Avatar } from './ui/Avatar'
 import { SearchInput } from './ui/SearchInput'
+import { DebugMenu } from './DebugMenu'
 import { useTheme, type Theme } from '@/lib/theme'
 import avatarSrc from '@/assets/avatar.png'
 
@@ -20,10 +21,12 @@ const THEME_OPTIONS: { value: Theme; label: string; icon: React.FC<{ size: numbe
 export function TopBar({ onMenuToggle }: TopBarProps) {
   const { theme, setTheme } = useTheme()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [debugOpen, setDebugOpen] = useState(false)
   const avatarRef = useRef<HTMLButtonElement>(null)
+  const helpRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  // Close on outside click
+  // Close theme menu on outside click
   useEffect(() => {
     if (!menuOpen) return
     const handler = (e: MouseEvent) => {
@@ -54,9 +57,16 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
 
       {/* Right */}
       <div className="flex items-center gap-[6px] pointer-events-auto">
-        <IconButton tooltip="Help" tooltipPlacement="bottom" aria-label="Help">
-          <IconHelpCircle size={16} stroke={1.5} />
-        </IconButton>
+        <div ref={helpRef}>
+          <IconButton
+            tooltip="Debug"
+            tooltipPlacement="bottom"
+            aria-label="Debug"
+            onClick={() => setDebugOpen((v) => !v)}
+          >
+            <IconHelpCircle size={16} stroke={1.5} />
+          </IconButton>
+        </div>
         <button
           ref={avatarRef}
           onClick={() => setMenuOpen((o) => !o)}
@@ -70,7 +80,7 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
       {menuOpen && rect && createPortal(
         <div
           ref={menuRef}
-          className="fixed z-50 bg-bg-elevated border border-border-default rounded-lg shadow-[0px_4px_6px_-4px_rgba(0,0,0,0.4),0px_10px_15px_-3px_rgba(0,0,0,0.5)] p-1"
+          className="fixed z-50 bg-bg-elevated border border-border-default rounded-lg shadow-lg p-1"
           style={{ top: rect.bottom + 6, right: window.innerWidth - rect.right }}
         >
           <div className="flex items-center h-7 px-3">
@@ -97,6 +107,11 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
           })}
         </div>,
         document.body
+      )}
+
+      {/* Debug menu */}
+      {debugOpen && (
+        <DebugMenu anchorEl={helpRef.current} onClose={() => setDebugOpen(false)} />
       )}
     </div>
   )

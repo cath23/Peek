@@ -16,10 +16,21 @@ interface HuddleCardProps {
   className?: string
 }
 
-export function MemberAvatars({ count, borderClass }: { count: number; borderClass?: string }) {
+export function MemberAvatars({
+  members,
+  count,
+  borderClass,
+}: {
+  members?: string[]
+  count?: number
+  borderClass?: string
+}) {
+  // If names are provided, render up to 4 of them with photo lookup; otherwise
+  // fall back to count-based placeholders for legacy callers.
+  const slots = members ? members.slice(0, 4) : Array.from({ length: Math.min(count ?? 0, 4) }, () => undefined)
   return (
     <div className="flex items-center">
-      {Array.from({ length: Math.min(count, 4) }).map((_, i) => (
+      {slots.map((name, i) => (
         <div
           key={i}
           className={cn(
@@ -28,7 +39,7 @@ export function MemberAvatars({ count, borderClass }: { count: number; borderCla
             borderClass ?? 'border-bg-surface'
           )}
         >
-          <Avatar size={24} />
+          <Avatar size={24} name={name} alt={name} />
         </div>
       ))}
     </div>
@@ -115,7 +126,7 @@ export function HuddleCard({
         {/* Header: avatars + names + timestamp */}
         <div className="flex items-center gap-2">
           <MemberAvatars
-            count={huddle.members.length}
+            members={huddle.members}
             borderClass={isSelected ? 'border-bg-selected' : isHovered ? 'border-bg-hover' : 'border-bg-surface'}
           />
           <span className="text-body-2-strong text-text-primary truncate flex-1">
@@ -126,7 +137,7 @@ export function HuddleCard({
           </span>
         </div>
 
-        {/* Message preview — 2 lines with ellipsis */}
+        {/* Message preview - 2 lines with ellipsis */}
         <div className="pt-1 flex-1 min-h-0 overflow-hidden">
           <p className="text-caption text-text-secondary leading-[1.4] line-clamp-2">
             {bodyText.split('\n').filter(Boolean).map((line, i) => {
@@ -141,9 +152,9 @@ export function HuddleCard({
           </p>
         </div>
 
-        {/* Footer: replies — 24px total height */}
+        {/* Footer: replies - 24px total height */}
         {replyCount > 0 && (
-          <div className="flex items-center gap-2 text-text-muted h-6">
+          <div className="flex items-center gap-2 text-text-secondary h-6">
             <IconMessage2 size={14} stroke={1.5} className="shrink-0" />
             <span className="text-caption">
               {replyCount} {replyCount === 1 ? 'reply' : 'replies'}

@@ -15,11 +15,11 @@ export function AppShell({ leftPanel, rightPanel, threadPanel }: AppShellProps) 
     <div className="h-screen overflow-hidden bg-bg-base relative">
       <TopBar onMenuToggle={() => setCollapsed((c) => !c)} />
 
-      {/* Main area — offset below TopBar */}
+      {/* Main area - offset below TopBar */}
       <div className="flex h-full pt-[52px] pb-4 pr-4 transition-[padding] duration-300 ease-in-out"
         style={{ paddingLeft: collapsed ? 16 : 0 }}
       >
-        {/* NavRail — collapses to 0 width */}
+        {/* NavRail - collapses to 0 width */}
         <div
           className="shrink-0 overflow-hidden transition-[width,opacity] duration-300 ease-in-out"
           style={{ width: collapsed ? 0 : 64, opacity: collapsed ? 0 : 1 }}
@@ -29,7 +29,7 @@ export function AppShell({ leftPanel, rightPanel, threadPanel }: AppShellProps) 
 
         {/* App card */}
         <div className="flex flex-1 min-w-0 bg-bg-surface rounded-2xl overflow-hidden">
-          {/* Left panel — collapses to 0 width */}
+          {/* Left panel - collapses to 0 width */}
           {leftPanel && (
             <div
               className="shrink-0 border-r border-border-subtle flex flex-col overflow-hidden transition-[width,opacity] duration-300 ease-in-out"

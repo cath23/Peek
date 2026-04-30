@@ -74,14 +74,9 @@ export default {
         'error-muted':     'var(--error-muted)',
       },
       boxShadow: {
-        // Light theme shadows (default)
-        'sm':  '0 1px 2px 0 rgba(0,0,0,0.30)',
-        'md':  '0 4px 6px -1px rgba(0,0,0,0.40), 0 2px 4px -2px rgba(0,0,0,0.40)',
-        'lg':  '0 10px 15px -3px rgba(0,0,0,0.50), 0 4px 6px -4px rgba(0,0,0,0.40)',
-        // Dark theme shadows
-        'sm-dark': '0 1px 2px 0 rgba(0,0,0,0.05)',
-        'md-dark': '0 4px 6px -1px rgba(0,0,0,0.10), 0 2px 4px -2px rgba(0,0,0,0.10)',
-        'lg-dark': '0 10px 15px -3px rgba(0,0,0,0.10), 0 4px 6px -4px rgba(0,0,0,0.10)',
+        'sm':  'var(--shadow-sm)',
+        'md':  'var(--shadow-md)',
+        'lg':  'var(--shadow-lg)',
       },
     },
   },

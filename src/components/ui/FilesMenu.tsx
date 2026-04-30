@@ -219,7 +219,7 @@ export const FilesMenu = forwardRef<FilesMenuRef, FilesMenuProps>(
       : ''
 
     return (
-      <div className="w-[658px] max-h-[360px] overflow-y-auto bg-bg-elevated border border-border-default rounded-lg shadow-[0px_4px_6px_-4px_rgba(0,0,0,0.4),0px_10px_15px_-3px_rgba(0,0,0,0.5)]">
+      <div className="w-[658px] max-h-[360px] overflow-y-auto bg-bg-elevated border border-border-default rounded-lg shadow-lg">
         <div className="p-2">
           {/* Level 2 back header */}
           {isLevel2 && (

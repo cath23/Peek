@@ -16,6 +16,8 @@ interface TopicStateProps {
   avatarSrc?: string
   memberCount?: number
   className?: string
+  /** Override the default text-text-secondary color on the icon (e.g. for selected rows or headers). Resolved icon always stays green. */
+  iconClassName?: string
 }
 
 export function TopicState({
@@ -24,25 +26,26 @@ export function TopicState({
   avatarSrc,
   memberCount,
   className,
+  iconClassName,
 }: TopicStateProps) {
   return (
     <div className={cn('relative shrink-0 flex items-center justify-center w-4 h-4', className)}>
       {type === 'topic' && status === 'resolved' ? (
         <IconCircleCheck size={16} stroke={1.5} className="text-success-default" />
       ) : type === 'topic' ? (
-        <IconCircleDashed size={16} stroke={1.5} className="text-text-secondary" />
+        <IconCircleDashed size={16} stroke={1.5} className={cn('text-text-secondary', iconClassName)} />
       ) : type === 'DM' ? (
         <Avatar size={16} src={avatarSrc} />
       ) : type === 'team' ? (
-        <IconUsers size={16} stroke={1.5} className="text-text-secondary" />
+        <IconUsers size={16} stroke={1.5} className={cn('text-text-secondary', iconClassName)} />
       ) : type === 'group' ? (
         <div className="flex items-center justify-center bg-bg-inset rounded-sm px-[2px] min-w-[16px] h-[16px]">
-          <span className="text-[11px] font-medium text-text-secondary leading-none">
+          <span className={cn('text-[11px] font-medium text-text-secondary leading-none', iconClassName)}>
             {memberCount ?? 0}
           </span>
         </div>
       ) : type === 'view' ? (
-        <IconBrackets size={16} stroke={1.5} className="text-text-secondary" />
+        <IconBrackets size={16} stroke={1.5} className={cn('text-text-secondary', iconClassName)} />
       ) : null}
     </div>
   )

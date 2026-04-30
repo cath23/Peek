@@ -1,7 +1,7 @@
 import { Node, InputRule } from '@tiptap/core'
 
 /**
- * ResolutionBlock — a block node triggered by typing "-> " at the start of a paragraph.
+ * ResolutionBlock - a block node triggered by typing "-> " at the start of a paragraph.
  * Renders with a left border in the editor. On send, the text is extracted as a resolution
  * message and stripped from the visible message body.
  */

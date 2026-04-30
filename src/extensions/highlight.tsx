@@ -4,7 +4,7 @@ import type { NodeViewProps } from '@tiptap/react'
 import { HIGHLIGHT_META, type HighlightType } from '@/data/topicData'
 
 /**
- * HighlightTag — an inline atom node inserted at the start of a message
+ * HighlightTag - an inline atom node inserted at the start of a message
  * to mark it as a Highlight. Renders as a colored chip. Clicking it
  * dispatches a custom event so the ComposeBox can open the type picker.
  */
@@ -24,7 +24,7 @@ function HighlightTagView({ node }: NodeViewProps) {
       as="span"
       className="inline-flex items-center gap-1 rounded-sm px-1 text-sm font-medium select-none cursor-pointer"
       style={{
-        backgroundColor: `${meta.color}22`,
+        backgroundColor: `color-mix(in srgb, ${meta.color} 13%, transparent)`,
         color: meta.color,
         verticalAlign: 'text-bottom',
         height: '1.4em',

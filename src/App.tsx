@@ -9,7 +9,9 @@ function App() {
       <Route path="/" element={<Navigate to="/desk" replace />} />
       <Route path="/desk" element={<DeskPage />} />
       <Route path="/topics" element={<TopicsPage />} />
+      <Route path="/topics/:id" element={<TopicsPage />} />
       <Route path="/people" element={<PeoplePage />} />
+      <Route path="/people/:id" element={<PeoplePage />} />
     </Routes>
   )
 }

@@ -14,13 +14,13 @@ interface ContainerHeaderProps {
   leadingIcon?: boolean
   /** Custom slot rendered between title area and action buttons */
   more?: ReactNode
-  /** 1st action button — defaults to Edit icon */
+  /** 1st action button - defaults to Edit icon */
   prop1stAction?: boolean
   prop1stActionTooltip?: string
-  /** 2nd action button — defaults to Sort Descending icon */
+  /** 2nd action button - defaults to Sort Descending icon */
   prop2ndAction?: boolean
   prop2ndActionTooltip?: string
-  /** 3rd action button — defaults to Sort Descending icon (hidden by default, for future use) */
+  /** 3rd action button - defaults to Sort Descending icon (hidden by default, for future use) */
   prop3rdAction?: boolean
   prop3rdActionTooltip?: string
   className?: string
@@ -49,7 +49,7 @@ export function ContainerHeader({
         className
       )}
     >
-      {/* Left — leading icon + title + optional chevron */}
+      {/* Left - leading icon + title + optional chevron */}
       <div className="flex gap-2 items-center overflow-hidden shrink-0">
         {leadingIcon && (
           <IconCircleDashed size={16} stroke={1.5} className="text-text-muted shrink-0" />
@@ -64,7 +64,7 @@ export function ContainerHeader({
         </div>
       </div>
 
-      {/* Right — more slot + action buttons */}
+      {/* Right - more slot + action buttons */}
       {hasRightContent && (
         <div className="flex gap-3 items-center justify-end shrink-0">
           {more && <div className="shrink-0">{more}</div>}

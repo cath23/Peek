@@ -6,7 +6,7 @@ export interface Huddle {
   members: string[]           // author names (matches ConversationData.authorName)
   state: 'active' | 'resolved'
   lastActivity: string        // display timestamp
-  /** The opening message — same shape as a conversation */
+  /** The opening message - same shape as a conversation */
   conversation: ConversationData
 }
 
@@ -21,17 +21,17 @@ export const TOPIC_HUDDLES: Record<string, Huddle[]> = {
     {
       id: 'h1_1',
       topicId: '1',
-      members: ['Tom Braun', 'Liam Chen'],
+      members: ['You', 'Daniel Stanton', 'Juan Foley'],
       state: 'resolved',
       lastActivity: 'Mon, Sep 2',
       conversation: {
         id: 'h1_1_c1',
-        authorName: 'Tom Braun',
+        authorName: 'Daniel Stanton',
         timestamp: '9:40 AM',
         body: "Liam, before I post to the main thread I want to double-check something. The dep conflict looks like it's @testing-library/react 15.x but I'm also seeing a transitive resolution issue with jest-dom.\n\nCan you confirm which lockfile you're seeing the mismatch in? I don't want to pin the wrong package.",
         replyCount: 3,
         isResolved: true,
-        resolvedBy: 'Tom Braun',
+        resolvedBy: 'Daniel Stanton',
         resolutionMessage: 'Confirmed it was only @testing-library/react. Pinned to 14.x.',
       },
     },
@@ -42,12 +42,12 @@ export const TOPIC_HUDDLES: Record<string, Huddle[]> = {
     {
       id: 'h2_1',
       topicId: '2',
-      members: ['Nina Park', 'Carlos Mendez'],
+      members: ['You', 'Hallie Pratt', 'Greg Bothman'],
       state: 'resolved',
       lastActivity: 'Thu, Aug 29',
       conversation: {
         id: 'h2_1_c1',
-        authorName: 'Nina Park',
+        authorName: 'Hallie Pratt',
         timestamp: '9:30 AM',
         body: "Carlos, the EU push notification issue is more complex than I initially thought. The Frankfurt SNS endpoint is configured correctly but the topic ARN has a region mismatch.\n\nI want to align with you before escalating to the backend team. Can we walk through the AWS config together?",
         replyCount: 5,
@@ -56,12 +56,12 @@ export const TOPIC_HUDDLES: Record<string, Huddle[]> = {
     {
       id: 'h2_2',
       topicId: '2',
-      members: ['Nina Park', 'Raj Patel'],
+      members: ['You', 'Hallie Pratt', 'Zack Bright'],
       state: 'active',
       lastActivity: 'Fri, Aug 30',
       conversation: {
         id: 'h2_2_c1',
-        authorName: 'Raj Patel',
+        authorName: 'Zack Bright',
         timestamp: '10:15 AM',
         body: "Nina, quick flag before the build goes to App Store review. The Face ID fix I shipped works on iOS 16.1 but I haven't been able to test on 16.0.\n\nDo we have a 16.0 device in the office or should I spin up a simulator? Don't want to risk a rejection.",
         replyCount: 2,
@@ -74,7 +74,7 @@ export const TOPIC_HUDDLES: Record<string, Huddle[]> = {
     {
       id: 'h3_1',
       topicId: '3',
-      members: ['Greg Bothman', 'AI'],
+      members: ['You', 'Greg Bothman', 'Amie Miles'],
       state: 'active',
       lastActivity: 'Today',
       conversation: {
@@ -88,7 +88,7 @@ export const TOPIC_HUDDLES: Record<string, Huddle[]> = {
     {
       id: 'h3_2',
       topicId: '3',
-      members: ['Greg Bothman', 'Alice Curtis'],
+      members: ['You', 'Greg Bothman', 'Alice Johnson'],
       state: 'active',
       lastActivity: 'Today',
       conversation: {
@@ -106,12 +106,12 @@ export const TOPIC_HUDDLES: Record<string, Huddle[]> = {
     {
       id: 'h9_1',
       topicId: '9',
-      members: ['Alice Curtis', 'Jake Walter'],
+      members: ['You', 'Alice Johnson', 'Jake Walter'],
       state: 'active',
       lastActivity: 'Wed, Sep 4',
       conversation: {
         id: 'h9_1_c1',
-        authorName: 'Alice Curtis',
+        authorName: 'Alice Johnson',
         timestamp: '11:30 AM',
         body: "Jake, I want to get your take on the 'You\'re all set' screen before I finalize the mockups. The current version is a dead end with no CTA.\n\nI'm considering two options:\n- Primary 'Go to dashboard' button with a secondary 'Take a tour'\n- Single 'Continue' that leads to a contextual onboarding overlay\n\nWhich feels more aligned with how users actually behave after onboarding?",
         replyCount: 3,

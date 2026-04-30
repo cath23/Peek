@@ -36,7 +36,7 @@ function serializeInline(node: { forEach: (cb: (child: { type: { name: string };
     } else if (child.type.name === 'fileMention') {
       text += `[${child.attrs.label}]`
     } else if (child.type.name === 'highlightTag') {
-      // Skip — extracted as metadata, not serialized into text
+      // Skip - extracted as metadata, not serialized into text
     } else {
       text += child.text ?? ''
     }
@@ -48,7 +48,7 @@ function serializeToText(editor: ReturnType<typeof useEditor>): string {
   if (!editor) return ''
   const lines: string[] = []
   editor.state.doc.forEach((node) => {
-    // Skip resolution blocks — they are consumed by the resolve action
+    // Skip resolution blocks - they are consumed by the resolve action
     if (node.type.name === 'resolutionBlock') return
     if (node.type.name === 'paragraph') {
       lines.push(serializeInline(node))
@@ -75,7 +75,7 @@ function serializeToText(editor: ReturnType<typeof useEditor>): string {
   return lines.join('\n').trim()
 }
 
-// ── Slash command items — all shortcuts ──
+// ── Slash command items - all shortcuts ──
 
 type SlashItem =
   | { kind: 'highlight'; type: HighlightType; label: string }
@@ -245,7 +245,7 @@ export function ComposeBox({ onSend, placeholder = 'default', className }: Compo
         .focus()
         .run()
     } else {
-      // No existing tag — if there's only slash text, clear it first; otherwise prepend
+      // No existing tag - if there's only slash text, clear it first; otherwise prepend
       const docText = ed.state.doc.textContent
       if (docText.startsWith('/')) {
         ed.commands.clearContent(true)
@@ -367,7 +367,7 @@ export function ComposeBox({ onSend, placeholder = 'default', className }: Compo
       {/* Slash command menu */}
       {showSlashMenu && filteredSlashItems.length > 0 && (
         <div className="absolute left-0 right-0 bottom-full mb-1 z-50">
-          <div className="w-[244px] bg-bg-elevated border border-border-default rounded-lg shadow-[0px_4px_6px_-4px_rgba(0,0,0,0.4),0px_10px_15px_-3px_rgba(0,0,0,0.5)] p-2 flex flex-col gap-2">
+          <div className="w-[244px] bg-bg-elevated border border-border-default rounded-lg shadow-lg p-2 flex flex-col gap-2">
             {highlightItems.length > 0 && (
               <div className="flex flex-col">
                 <div className="flex items-center h-[32px] px-2">
@@ -440,7 +440,7 @@ export function ComposeBox({ onSend, placeholder = 'default', className }: Compo
       {/* Highlight picker (from toolbar button or tag click) */}
       {showHighlightPicker && (
         <div ref={highlightPickerRef} className="absolute left-0 bottom-full mb-1 z-50">
-          <div className="w-[180px] bg-bg-elevated border border-border-default rounded-lg shadow-[0px_4px_6px_-4px_rgba(0,0,0,0.4),0px_10px_15px_-3px_rgba(0,0,0,0.5)] p-2">
+          <div className="w-[180px] bg-bg-elevated border border-border-default rounded-lg shadow-lg p-2">
             {(['insight', 'concern', 'conclusion', 'question', 'summary'] as HighlightType[]).map((type) => (
               <div
                 key={type}
@@ -460,7 +460,7 @@ export function ComposeBox({ onSend, placeholder = 'default', className }: Compo
       )}
 
       <div className="relative bg-bg-inset border border-border-default focus-within:border-border-strong rounded-lg p-3 flex flex-col gap-4 transition-colors">
-        {/* Editable area — left border when urgent or highlight */}
+        {/* Editable area - left border when urgent or highlight */}
         <div className={cn(
           'relative min-h-[20px] transition-all',
           hasUrgent && 'border-l-[4px] border-border-strong pl-2',
@@ -487,10 +487,10 @@ export function ComposeBox({ onSend, placeholder = 'default', className }: Compo
         {/* Toolbar */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
-            <IconButton aria-label="Attach file">
+            <IconButton tooltip="Attach file" aria-label="Attach file">
               <IconPaperclip size={16} stroke={1.5} />
             </IconButton>
-            <IconButton aria-label="Snooze">
+            <IconButton tooltip="Snooze" aria-label="Snooze">
               <IconSquareForbid2 size={16} stroke={1.5} />
             </IconButton>
             <IconButton

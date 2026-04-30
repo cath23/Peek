@@ -24,6 +24,7 @@ import {
 import figmaIcon from '@/assets/figma icon.svg'
 import linearIcon from '@/assets/linear icon.svg'
 import { IconButton } from './ui/IconButton'
+import { Button } from './ui/Button'
 import { Avatar } from './ui/Avatar'
 import { Chip } from './ui/Chip'
 import { Reaction as ReactionPill } from './ui/Reaction'
@@ -53,7 +54,14 @@ const _escapedBracketTitles = [
   .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   .sort((a, b) => b.length - a.length)
   .join('|')
-const MENTION_RE = new RegExp(`((?:!@|@)(?:${_escapedNames})|\\[(?:${_escapedBracketTitles})\\])`, 'g')
+// Captures: @FullName / !@FullName (PEOPLE), @lowercase-handle (teams/groups
+// like @backend-team, @devops), and [Topic Title] / [File Title] brackets.
+// The lookahead (?![a-zA-Z/]) prevents partial matches inside camelCase or
+// package paths (e.g. @testing-library/react is left as plain text).
+const MENTION_RE = new RegExp(
+  `((?:!@|@)(?:${_escapedNames})|@[a-z][a-z0-9-]+(?![a-zA-Z/])|\\[(?:${_escapedBracketTitles})\\])`,
+  'g'
+)
 
 /** Parse inline content (mentions + topic refs + text) into Tiptap JSON nodes */
 function parseInlineContent(line: string): Record<string, unknown>[] {
@@ -179,7 +187,7 @@ function serializeTiptapToText(editor: ReturnType<typeof useEditor>): string {
   if (!editor) return ''
   const lines: string[] = []
   editor.state.doc.forEach((node) => {
-    // Skip resolution blocks — consumed by the resolve action
+    // Skip resolution blocks - consumed by the resolve action
     if (node.type.name === 'resolutionBlock') return
     if (node.type.name === 'paragraph') {
       lines.push(serializeInline(node))
@@ -427,7 +435,7 @@ export function ConversationCard({
   // Highlight
   const [highlightState, setHighlightState] = useState<HighlightType | undefined>(highlightType)
 
-  // Body — mutable after edit
+  // Body - mutable after edit
   const [bodyState, setBodyState] = useState(body)
 
   // Edit mode
@@ -564,7 +572,7 @@ export function ConversationCard({
     return () => document.removeEventListener('mousedown', close)
   }, [showMoreMenu])
 
-  // Resolved state — sync from parent when prop changes
+  // Resolved state - sync from parent when prop changes
   const [resolved, setResolved] = useState(initialResolved)
   const [resolvedBy, setResolvedBy] = useState(initialResolvedBy)
   const [resolutionMsg, setResolutionMsg] = useState(initialResolutionMessage)
@@ -597,7 +605,7 @@ export function ConversationCard({
     const MENU_HEIGHT = 300
     const right = window.innerWidth - rect.right
     if (window.innerHeight - rect.bottom < MENU_HEIGHT) {
-      // Not enough space below — anchor bottom of menu to just above the button
+      // Not enough space below - anchor bottom of menu to just above the button
       setMoreMenuPos({ bottom: window.innerHeight - rect.top + 4, right })
     } else {
       setMoreMenuPos({ top: rect.bottom + 4, right })
@@ -705,14 +713,26 @@ export function ConversationCard({
     <>
       <div
         className={cn(
-          'relative rounded-lg transition-colors',
+          'relative rounded-lg transition-colors border',
           isEditing
-            ? 'bg-bg-selected border border-accent-primary'
-            : isSelected
-              ? 'bg-bg-selected border border-border-subtle'
-              : isHovered
-                ? 'bg-bg-hover border border-border-default'
-                : 'bg-bg-surface border border-transparent',
+            ? 'bg-bg-selected border-accent-primary'
+            : cn(
+                isSelected
+                  ? 'bg-bg-selected'
+                  : isHovered
+                    ? 'bg-bg-hover'
+                    : 'bg-bg-surface',
+                // Notification borders override the default state border
+                (hasNewMessage || hasNewReply)
+                  ? isUrgent
+                    ? 'border-warning-muted'
+                    : 'border-accent-muted'
+                  : isSelected
+                    ? 'border-border-subtle'
+                    : isHovered
+                      ? 'border-border-default'
+                      : 'border-transparent'
+              ),
           onClick && !isEditing && 'cursor-pointer',
           className
         )}
@@ -729,7 +749,7 @@ export function ConversationCard({
         onMouseLeave={() => { setIsHovered(false); setShowReactionPicker(false) }}
       >
 
-        {/* ── Topic header — hidden while editing ── */}
+        {/* ── Topic header - hidden while editing ── */}
         {isTopic && !isEditing && (
           <div className="flex items-start gap-2 px-2 py-3 pb-2">
             <div className="flex flex-col items-center gap-1 w-6 shrink-0">
@@ -761,28 +781,12 @@ export function ConversationCard({
           </div>
         )}
 
-        {/* ── Resolution banner — hidden while editing ── */}
-        {!isTopic && resolved && !isEditing && (
-          <div className="flex items-center gap-2 px-3 py-2 pb-1">
-            <IconChecks size={16} stroke={1.5} className="text-success-default shrink-0" />
-            <span className="text-menu text-success-default whitespace-nowrap">
-              {resolvedBy || 'Someone'} resolved
-            </span>
-            {resolutionMsg && (
-              <>
-                <IconArrowNarrowRight size={12} stroke={1.5} className="text-text-primary shrink-0" />
-                <span className="text-menu text-text-primary truncate">{resolutionMsg}</span>
-              </>
-            )}
-          </div>
-        )}
-
         {/* ── Message box ── */}
         {isEditing ? (
           /* Edit layout: avatar + textarea box side by side */
-          <div className="p-2">
+          <div className="p-2 border border-accent-primary rounded-lg">
             <div className="flex items-start gap-2">
-              <Avatar size={24} src={authorAvatarSrc} alt={authorName} className="shrink-0 mt-3" />
+              <Avatar size={24} src={authorAvatarSrc} alt={authorName} className="shrink-0 mt-1" />
               <div className="flex-1 min-w-0 bg-bg-inset border border-border-default rounded-lg p-3 flex flex-col gap-4">
                 <div className={cn(
                   'relative min-h-[20px] transition-all',
@@ -797,32 +801,20 @@ export function ConversationCard({
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1">
-                    <IconButton aria-label="Attach file">
+                    <IconButton tooltip="Attach file" aria-label="Attach file">
                       <IconPaperclip size={16} stroke={1.5} />
                     </IconButton>
-                    <IconButton aria-label="Snooze">
+                    <IconButton tooltip="Snooze" aria-label="Snooze">
                       <IconSquareForbid2 size={16} stroke={1.5} />
                     </IconButton>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={handleEditCancel}
-                      className="h-6 px-1 text-xs font-medium text-text-primary border border-border-default rounded-md hover:bg-bg-active transition-colors cursor-pointer"
-                    >
+                    <Button variant="outlined" size="small" className="w-14" onClick={handleEditCancel}>
                       Cancel
-                    </button>
-                    <button
-                      onClick={handleEditSave}
-                      disabled={editEmpty}
-                      className={cn(
-                        'h-6 w-12 text-xs font-medium rounded-md transition-colors',
-                        editEmpty
-                          ? 'bg-bg-disabled text-text-disabled pointer-events-none'
-                          : 'bg-accent-primary hover:bg-accent-hover text-accent-muted cursor-pointer'
-                      )}
-                    >
+                    </Button>
+                    <Button variant="primary" size="small" className="w-14" disabled={editEmpty} onClick={handleEditSave}>
                       Save
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -830,22 +822,26 @@ export function ConversationCard({
           </div>
         ) : (
         /* Normal layout: header + body + reactions + replies */
-        <div className={cn('flex flex-col items-start p-2', isTopic && 'pt-0')}>
+        <div className={cn('flex flex-col items-start pt-2 px-2', isTopic && 'pt-0')}>
           {/* Header */}
-          <div className="flex items-center gap-2 w-full">
+          <div className={cn('flex items-center gap-2 w-full', hasNewMessage && 'justify-between')}>
             <div className="flex items-center gap-2 shrink-0">
               <Avatar size={24} src={authorAvatarSrc} alt={authorName} />
               <span className="text-body-2-strong text-text-primary whitespace-nowrap">{authorName}</span>
               <span className="text-caption text-text-muted whitespace-nowrap">{timestamp}</span>
               {highlightState && <HighlightPill type={highlightState} />}
             </div>
-            {hasNewMessage && !isUrgent && <Chip type="brand" label="1 new" />}
-            {isUrgent && (
-              <Chip
-                type="warning"
-                label="1 new"
-                leadingIcon={<IconAlertSquareRounded size={12} stroke={1.5} />}
-              />
+            {hasNewMessage && !isUrgent && (
+              <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                <div className="w-1.5 h-1.5 rounded-full bg-accent-primary" />
+              </div>
+            )}
+            {hasNewMessage && isUrgent && (
+              <div className="w-6 h-6 flex items-center justify-center shrink-0">
+                <div className="flex items-center p-0.5 rounded-full bg-warning-muted">
+                  <IconAlertSquareRounded size={12} stroke={2.5} className="text-warning-default" />
+                </div>
+              </div>
             )}
           </div>
 
@@ -864,11 +860,13 @@ export function ConversationCard({
 
           {/* Replies */}
           {!isEditing && replyCount != null && replyCount > 0 && (
-            <div className="flex items-center gap-2 pl-8 pr-2 py-1.5 w-full">
-              <IconMessage2 size={16} stroke={1.5} className="text-text-muted shrink-0" />
-              <span className="text-chip text-text-muted">
-                {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
-              </span>
+            <div className="flex items-center gap-2 pl-8 pr-2 pb-1.5 w-full">
+              <div className="flex items-center gap-2 py-1.5 shrink-0">
+                <IconMessage2 size={16} stroke={1.5} className="text-text-secondary shrink-0" />
+                <span className="text-chip text-text-secondary">
+                  {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+                </span>
+              </div>
               {hasNewReply && !isUrgent && (
                 <>
                   <div className="w-0.5 h-0.5 rounded-full bg-text-muted shrink-0" />
@@ -878,11 +876,7 @@ export function ConversationCard({
               {hasNewReply && isUrgent && (
                 <>
                   <div className="w-0.5 h-0.5 rounded-full bg-text-muted shrink-0" />
-                  <Chip
-                    type="warning"
-                    label="1 new"
-                    leadingIcon={<IconAlertSquareRounded size={12} stroke={1.5} />}
-                  />
+                  <Chip type="warning" label="1 new" />
                 </>
               )}
             </div>
@@ -890,9 +884,25 @@ export function ConversationCard({
         </div>
         )}
 
+        {/* ── Resolution banner - bottom, hidden while editing ── */}
+        {!isTopic && resolved && !isEditing && (
+          <div className="flex items-center gap-2 pl-10 pr-3 pb-2">
+            <IconChecks size={16} stroke={1.5} className="text-success-default shrink-0" />
+            <span className="text-[12px] leading-[1.1] font-medium text-success-default whitespace-nowrap">
+              {resolvedBy || 'Someone'} resolved
+            </span>
+            {resolutionMsg && (
+              <>
+                <IconArrowNarrowRight size={12} stroke={1.5} className="text-text-primary shrink-0" />
+                <span className="text-[12px] leading-[1.1] font-medium text-text-primary truncate">{resolutionMsg}</span>
+              </>
+            )}
+          </div>
+        )}
+
         {/* ── Quick menu on hover ── */}
         {isHovered && !isEditing && (
-          <div className="absolute right-[3px] top-[3px]" onClick={(e) => e.stopPropagation()}>
+          <div className="absolute right-1 top-1" onClick={(e) => e.stopPropagation()}>
             <ConversationQuickMenu
               isResolved={resolved}
               onReact={() => setShowReactionPicker((v) => !v)}

@@ -5,6 +5,7 @@ import {
   IconPlus,
   IconArrowBack,
   IconHighlight,
+  IconChevronRight,
   IconX,
 } from '@tabler/icons-react'
 import { Divider } from './ui/Divider'
@@ -166,7 +167,7 @@ export function ConversationMoreMenu({
               <span className="flex-1 text-sm text-text-secondary">
                 {currentHighlight ? 'Change highlight' : 'Mark as Highlight'}
               </span>
-              <span className="text-text-muted text-xs">›</span>
+              <IconChevronRight size={16} stroke={1.5} className="text-text-muted shrink-0" />
             </div>
             {showHighlightSub && (
               <div
@@ -197,7 +198,7 @@ export function ConversationMoreMenu({
                       className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-bg-hover"
                       onClick={() => onHighlight(undefined)}
                     >
-                      <IconX size={14} stroke={1.5} className="text-text-muted shrink-0" />
+                      <IconX size={16} stroke={1.5} className="text-text-secondary shrink-0" />
                       <span className="text-sm text-text-secondary">Remove</span>
                     </div>
                   </>

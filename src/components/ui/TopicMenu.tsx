@@ -13,7 +13,7 @@ export function TopicMenu({ topics, highlight, onSelect, onHighlightChange }: To
   if (topics.length === 0) return null
 
   return (
-    <div className="w-fit min-w-[420px] bg-bg-elevated border border-border-default rounded-lg overflow-hidden shadow-[0px_4px_6px_-4px_rgba(0,0,0,0.4),0px_10px_15px_-3px_rgba(0,0,0,0.5)]">
+    <div className="w-fit min-w-[420px] bg-bg-elevated border border-border-default rounded-lg overflow-hidden shadow-lg">
       <div className="p-2">
         {/* Section header */}
         <div className="flex items-center h-8 px-3">

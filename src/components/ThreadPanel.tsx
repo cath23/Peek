@@ -53,6 +53,10 @@ interface ThreadPanelProps {
   isResolved?: boolean
   /** When set, shows member avatars in the header (for Huddle threads) */
   huddleMemberCount?: number
+  /** Member names for the huddle - drives the avatar lookups in the header pill */
+  huddleMembers?: string[]
+  /** DM thread participants - shows You + the other person in the header pill */
+  dmMembers?: string[]
   onClose: () => void
   onSendReply: (payload: SendPayload) => void
   onDeleteReply?: (id: string) => void
@@ -65,6 +69,8 @@ export function ThreadPanel({
   sentReplies,
   isResolved = false,
   huddleMemberCount,
+  huddleMembers = [],
+  dmMembers = [],
   onClose,
   onSendReply,
   onDeleteReply,
@@ -90,21 +96,36 @@ export function ThreadPanel({
           {isResolved && (
             <span className="text-caption text-success-default">Resolved</span>
           )}
-          {huddleMemberCount != null && huddleMemberCount > 0 && (
-            <div className="bg-bg-elevated border border-border-default rounded-sm flex gap-2 items-center pl-[2px] pr-2 py-[2px]">
-              <div className="flex items-center pr-2">
-                {Array.from({ length: Math.min(huddleMemberCount, 3) }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="-mr-2 relative shrink-0 size-6 rounded-sm overflow-hidden border-2 border-bg-elevated"
-                  >
-                    <Avatar size={24} />
-                  </div>
-                ))}
+          {(() => {
+            // Show member pill for huddle threads OR DM threads. Both display
+            // up to 3 avatars with the total count beside them.
+            const members =
+              huddleMembers.length > 0
+                ? huddleMembers
+                : dmMembers.length > 0
+                  ? dmMembers
+                  : []
+            const total = members.length || huddleMemberCount || 0
+            if (total === 0) return null
+            return (
+              <div className="bg-bg-elevated border border-border-default rounded-sm flex gap-2 items-center pl-[2px] pr-2 py-[2px]">
+                <div className="flex items-center pr-2">
+                  {(members.length > 0
+                    ? members.slice(0, 3).map((name, i) => ({ key: i, name }))
+                    : Array.from({ length: Math.min(total, 3) }, (_, i) => ({ key: i, name: undefined as string | undefined }))
+                  ).map(({ key, name }) => (
+                    <div
+                      key={key}
+                      className="-mr-2 relative shrink-0 size-6 rounded-sm overflow-hidden border-2 border-bg-elevated"
+                    >
+                      <Avatar size={24} name={name} alt={name} />
+                    </div>
+                  ))}
+                </div>
+                <span className="text-caption text-text-secondary">{total}</span>
               </div>
-              <span className="text-caption text-text-secondary">{huddleMemberCount}</span>
-            </div>
-          )}
+            )
+          })()}
           <IconButton tooltip="Close" aria-label="Close thread" onClick={onClose}>
             <IconX size={16} stroke={1.5} />
           </IconButton>
@@ -136,7 +157,7 @@ export function ThreadPanel({
         {/* Replies divider */}
         <DateDivider label="Replies" className="px-4 py-2" />
 
-        {/* Reply list — chronological top to bottom */}
+        {/* Reply list - chronological top to bottom */}
         <div className="flex flex-col px-4 pb-4 gap-2">
           {allReplies.map((reply) => (
             <ThreadReplyCard
@@ -145,6 +166,8 @@ export function ThreadPanel({
               timestamp={reply.timestamp}
               body={reply.body}
               highlightType={reply.highlightType}
+              isNew={reply.isNew}
+              isUrgent={reply.isUrgent}
               onDelete={onDeleteReply ? () => onDeleteReply(reply.id) : undefined}
             />
           ))}

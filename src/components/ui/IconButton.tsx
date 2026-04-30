@@ -24,11 +24,11 @@ export function IconButton({
     <button
       className={cn(
         'flex items-center justify-center p-1 rounded-lg transition-colors shrink-0 cursor-pointer',
-        // Variant styles — only when not disabled
+        // Variant styles - only when not disabled
         !disabled && variant === 'primary' && 'bg-accent-primary hover:bg-accent-hover text-text-inverse',
         !disabled && variant === 'muted' && 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
         !disabled && variant === 'outlined' && 'border border-border-default hover:bg-bg-hover text-text-secondary',
-        // Disabled styles — per variant to match Figma spec
+        // Disabled styles - per variant to match Figma spec
         disabled && variant === 'primary' && 'bg-bg-disabled text-text-disabled',
         disabled && variant === 'muted' && 'text-text-disabled',
         disabled && variant === 'outlined' && 'border border-border-default text-text-disabled',
