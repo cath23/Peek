@@ -6,6 +6,7 @@ import { Chip } from './ui/Chip'
 import { Button } from './ui/Button'
 import { IconButton } from './ui/IconButton'
 import { cn } from '@/lib/utils'
+import { useTopicMutations } from '@/lib/topicMutations'
 import type { ScreenerItem } from '@/data/screenerData'
 
 interface ScreenerSectionProps {
@@ -18,6 +19,7 @@ interface ScreenerSectionProps {
 
 export function ScreenerSection({ items, onOpen, onLater, onDismiss, className }: ScreenerSectionProps) {
   const [isExpanded, setIsExpanded] = useState(true)
+  const { isTopicResolved } = useTopicMutations()
 
   if (items.length === 0) return null
 
@@ -39,7 +41,7 @@ export function ScreenerSection({ items, onOpen, onLater, onDismiss, className }
           />
           <span className="text-h5 text-text-primary">Screener</span>
         </div>
-        <Chip type="brand" label={`${items.length} new`} />
+        <Chip type="brand" label={String(items.length)} />
       </div>
 
       {/* Items */}
@@ -53,7 +55,7 @@ export function ScreenerSection({ items, onOpen, onLater, onDismiss, className }
               {/* Item header */}
               <div className="flex items-center gap-2">
                 {item.kind === 'topic' ? (
-                  <TopicState type="topic" status={item.topicStatus} />
+                  <TopicState type="topic" status={isTopicResolved(item.topicId) ? 'resolved' : 'unresolved'} />
                 ) : (
                   <Avatar size={16} src={item.authorAvatarSrc} alt={item.authorName} />
                 )}

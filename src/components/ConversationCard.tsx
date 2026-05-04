@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { Link } from 'react-router-dom'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { PeekMention, UrgentMention, TopicMention, FileMention, isSuggestionActive } from '@/extensions/mention'
-import { ResolutionBlock, extractResolution } from '@/extensions/resolution'
+import { ResolutionBlock, extractResolution, extractResolutionFromText } from '@/extensions/resolution'
 import { HighlightTag, extractHighlightType } from '@/extensions/highlight'
 import {
   IconMessage2,
@@ -33,10 +34,11 @@ import { ConversationQuickMenu } from './ConversationQuickMenu'
 import { ConversationMoreMenu } from './ConversationMoreMenu'
 import ReactionPicker from './ReactionPicker'
 import { ResolveDialog } from './ResolveDialog'
-import { CreateTopicDialog } from './CreateTopicDialog'
-import { PEOPLE } from '@/data/peopleData'
+import { CreateTopicDialog, type StartTopicResult } from './CreateTopicDialog'
+import { PEOPLE, type Person } from '@/data/peopleData'
 import { TOPICS, type ReactionData, type HighlightType } from '@/data/topicData'
 import { APP_FILES, DOCUMENT_FILES } from '@/data/filesData'
+import { useTopicMutations } from '@/lib/topicMutations'
 import { HighlightPill } from './ui/HighlightPill'
 import { cn } from '@/lib/utils'
 
@@ -214,7 +216,7 @@ function serializeTiptapToText(editor: ReturnType<typeof useEditor>): string {
   return lines.join('\n').trim()
 }
 
-function renderWithMentions(text: string): React.ReactNode {
+function renderWithMentions(text: string, isTopicResolved: (id: string) => boolean): React.ReactNode {
   const parts = text.split(MENTION_RE)
   if (parts.length === 1) return text
   return (
@@ -224,10 +226,11 @@ function renderWithMentions(text: string): React.ReactNode {
           const title = part.slice(1, -1)
           const topic = TOPICS.find((t) => t.title === title)
           if (topic) {
+            const resolved = isTopicResolved(topic.id)
             return (
               <span key={i} className="inline-flex items-center gap-1 rounded-sm px-1 mx-0.5 bg-bg-active text-text-primary text-sm font-normal select-none" style={{ verticalAlign: 'text-bottom', height: '1.4em' }}>
                 <span className="relative inline-flex items-center justify-center w-4 h-4 shrink-0">
-                  {topic.isResolved ? (
+                  {resolved ? (
                     <IconCircleCheck size={16} stroke={1.5} className="text-success-default" />
                   ) : (
                     <IconCircleDashed size={16} stroke={1.5} className="text-text-secondary" />
@@ -320,7 +323,7 @@ function parseBodySegments(body: string): BodySegment[] {
   return segments
 }
 
-function MessageBody({ body }: { body: string }) {
+function MessageBody({ body, isTopicResolved }: { body: string; isTopicResolved: (id: string) => boolean }) {
   const segments = parseBodySegments(body)
   return (
     <div className="flex flex-col gap-1 text-sm text-text-secondary leading-[1.4]">
@@ -331,7 +334,7 @@ function MessageBody({ body }: { body: string }) {
               {seg.items.map((item, j) => (
                 <li key={j} className="flex gap-2">
                   <span className="shrink-0 mt-px">•</span>
-                  <span>{renderWithMentions(item)}</span>
+                  <span>{renderWithMentions(item, isTopicResolved)}</span>
                 </li>
               ))}
             </ul>
@@ -343,7 +346,7 @@ function MessageBody({ body }: { body: string }) {
               {seg.items.map((item, j) => (
                 <li key={j} className="flex gap-2">
                   <span className="shrink-0 text-text-muted">{j + 1}.</span>
-                  <span>{renderWithMentions(item)}</span>
+                  <span>{renderWithMentions(item, isTopicResolved)}</span>
                 </li>
               ))}
             </ol>
@@ -354,7 +357,7 @@ function MessageBody({ body }: { body: string }) {
             {seg.lines.map((line, j) => (
               <span key={j}>
                 {j > 0 && <br />}
-                {renderWithMentions(line)}
+                {renderWithMentions(line, isTopicResolved)}
               </span>
             ))}
           </p>
@@ -383,7 +386,15 @@ interface ConversationCardProps {
   onHighlightChange?: (type: HighlightType | undefined) => void
   onBodyChange?: (body: string) => void
   showCreateTopic?: boolean
-  onResolvedChange?: (resolved: boolean) => void
+  /** When set, the Start-topic dialog renders the DM-to-huddle privacy banner and pre-fills invite chips with these participants. */
+  dmContext?: { participants: Person[] }
+  /** When set, the topic-anchor block renders as a huddle anchor (lock icon + "Huddle in [Topic]" link) above the message.
+   *  `topicResolved` flips the dashed-circle icon to the green checkmark when every conv in that topic is resolved. */
+  huddleContext?: { topicId: string; topicTitle: string; topicResolved?: boolean }
+  /** Called when user confirms Start topic from a DM context. When provided, supersedes the in-place isTopic flip. */
+  onStartTopicFromDm?: (data: StartTopicResult) => void
+  onResolvedChange?: (resolved: boolean, resolvedBy?: string, message?: string) => void
+  onReactionsChange?: (reactions: ReactionData[]) => void
   onDelete?: () => void
   isSelected?: boolean
   onReply?: () => void
@@ -411,7 +422,11 @@ export function ConversationCard({
   onHighlightChange,
   onBodyChange,
   showCreateTopic = true,
+  dmContext,
+  huddleContext,
+  onStartTopicFromDm,
   onResolvedChange,
+  onReactionsChange,
   onDelete,
   isSelected = false,
   onReply,
@@ -431,6 +446,11 @@ export function ConversationCard({
   // Reactions
   const [reactionsState, setReactionsState] = useState<ReactionData[]>(reactions ?? [])
   const [showReactionPicker, setShowReactionPicker] = useState(false)
+
+  // Sync local reaction state if the parent passes a different override (e.g. after navigation back).
+  useEffect(() => {
+    setReactionsState(reactions ?? [])
+  }, [reactions])
 
   // Highlight
   const [highlightState, setHighlightState] = useState<HighlightType | undefined>(highlightType)
@@ -595,6 +615,10 @@ export function ConversationCard({
   const [topicTitle, setTopicTitle] = useState(initialTopicTitle)
   const [showTopicDialog, setShowTopicDialog] = useState(false)
 
+  // Resolved-state of any *referenced* topic (for inline [Topic] mentions and the
+  // topic-anchor icon). Reads runtime mutations so the icon reflects user changes.
+  const { isTopicResolved } = useTopicMutations()
+
   const handleMore = (rect: DOMRect) => {
     // Toggle
     if (showMoreMenu) {
@@ -619,7 +643,7 @@ export function ConversationCard({
     setResolvedBy('You')
     setResolutionMsg(message)
     setShowResolveDialog(false)
-    onResolvedChange?.(true)
+    onResolvedChange?.(true, 'You', message)
   }
 
   const handleReopen = () => {
@@ -651,16 +675,28 @@ export function ConversationCard({
   const handleEditSave = () => {
     if (!editEditor) return
     const trimmed = serializeTiptapToText(editEditor)
-    const resolution = extractResolution(editEditor)
-    if (trimmed) {
-      setBodyState(trimmed)
-      onBodyChange?.(trimmed)
+    let resolution = extractResolution(editEditor)
+    let finalBody = trimmed
+
+    // Fallback: if the InputRule didn't fire (e.g. user typed "-> X" mid-line
+    // instead of at the start of a fresh paragraph), parse the serialized text.
+    if (!resolution.hasResolution) {
+      const fromText = extractResolutionFromText(trimmed)
+      if (fromText) {
+        finalBody = fromText.body
+        resolution = { hasResolution: true, resolutionMessage: fromText.resolutionMessage }
+      }
+    }
+
+    if (finalBody) {
+      setBodyState(finalBody)
+      onBodyChange?.(finalBody)
     }
     if (resolution.hasResolution) {
       setResolved(true)
       setResolvedBy('You')
       setResolutionMsg(resolution.resolutionMessage)
-      onResolvedChange?.(true)
+      onResolvedChange?.(true, 'You', resolution.resolutionMessage)
     }
     // Preserve highlight type from edit
     const hl = extractHighlightType(editEditor)
@@ -679,10 +715,14 @@ export function ConversationCard({
     setShowTopicDialog(true)
   }
 
-  const handleTopicConfirm = (data: { title: string; description: string }) => {
+  const handleTopicConfirm = (data: StartTopicResult) => {
+    setShowTopicDialog(false)
+    if (dmContext && onStartTopicFromDm) {
+      onStartTopicFromDm(data)
+      return
+    }
     setIsTopic(true)
     setTopicTitle(data.title)
-    setShowTopicDialog(false)
   }
 
   const handleRevertToConversation = () => {
@@ -693,18 +733,20 @@ export function ConversationCard({
 
   const handleReact = (emoji: string) => {
     setReactionsState((prev) => {
+      let next: ReactionData[]
       const existing = prev.find((r) => r.emoji === emoji && r.owner === 'yours')
       if (existing) {
-        // Toggle off own reaction
-        if (existing.count <= 1) return prev.filter((r) => r !== existing)
-        return prev.map((r) => r === existing ? { ...r, count: r.count - 1 } : r)
+        next = existing.count <= 1
+          ? prev.filter((r) => r !== existing)
+          : prev.map((r) => (r === existing ? { ...r, count: r.count - 1 } : r))
+      } else {
+        const othersExisting = prev.find((r) => r.emoji === emoji && r.owner === 'others')
+        next = othersExisting
+          ? prev.map((r) => (r === othersExisting ? { ...r, count: r.count + 1, owner: 'yours' as const } : r))
+          : [...prev, { emoji, count: 1, owner: 'yours' as const }]
       }
-      // Add new reaction
-      const othersExisting = prev.find((r) => r.emoji === emoji && r.owner === 'others')
-      if (othersExisting) {
-        return prev.map((r) => r === othersExisting ? { ...r, count: r.count + 1, owner: 'yours' as const } : r)
-      }
-      return [...prev, { emoji, count: 1, owner: 'yours' as const }]
+      onReactionsChange?.(next)
+      return next
     })
     setShowReactionPicker(false)
   }
@@ -749,8 +791,8 @@ export function ConversationCard({
         onMouseLeave={() => { setIsHovered(false); setShowReactionPicker(false) }}
       >
 
-        {/* ── Topic header - hidden while editing ── */}
-        {isTopic && !isEditing && (
+        {/* ── Topic anchor header (existing isTopic) - hidden while editing ── */}
+        {isTopic && !huddleContext && !isEditing && (
           <div className="flex items-start gap-2 px-2 py-3 pb-2">
             <div className="flex flex-col items-center gap-1 w-6 shrink-0">
               <TopicState
@@ -777,6 +819,31 @@ export function ConversationCard({
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Huddle anchor header - hidden while editing ── */}
+        {huddleContext && !isEditing && (
+          <div className="flex items-start gap-1 px-2 py-3 pb-1">
+            <div className="flex flex-col items-center gap-1 w-6 shrink-0">
+              {huddleContext.topicResolved ? (
+                <IconCircleCheck size={16} stroke={1.5} className="text-success-default" />
+              ) : (
+                <IconCircleDashed size={16} stroke={1.5} className="text-text-secondary" />
+              )}
+              <div className="w-px bg-border-default flex-1 min-h-[16px]" />
+            </div>
+            <div className="flex-1 min-w-0 flex items-center gap-1.5 h-4">
+              <span className="text-h5 text-text-secondary shrink-0">Huddle in</span>
+              <Link
+                to={`/topics/${huddleContext.topicId}`}
+                data-interactive
+                onClick={(e) => e.stopPropagation()}
+                className="text-h5 text-text-primary hover:underline truncate"
+              >
+                {huddleContext.topicTitle}
+              </Link>
             </div>
           </div>
         )}
@@ -846,7 +913,7 @@ export function ConversationCard({
           </div>
 
           <div className="pl-8 pr-2 pt-1 pb-2 w-full">
-            <MessageBody body={bodyState} />
+            <MessageBody body={bodyState} isTopicResolved={isTopicResolved} />
           </div>
 
           {/* Reactions */}
@@ -941,6 +1008,7 @@ export function ConversationCard({
                 isTopic={isTopic}
                 isResolved={resolved}
                 showCreateTopic={showCreateTopic}
+                isOwnMessage={authorName === 'You'}
                 currentHighlight={highlightState}
                 onHighlight={handleConvHighlight}
                 onCreateTopic={openCreateTopic}
@@ -965,6 +1033,8 @@ export function ConversationCard({
       {showTopicDialog && (
         <CreateTopicDialog
           defaultTitle={isTopic ? topicTitle : ''}
+          defaultInvitees={dmContext?.participants ?? []}
+          dmContext={dmContext}
           onConfirm={handleTopicConfirm}
           onCancel={() => setShowTopicDialog(false)}
         />

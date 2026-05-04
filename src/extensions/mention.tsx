@@ -7,6 +7,7 @@ import { IconCircleDashed, IconCircleCheck, IconBrandGithub, IconFile, IconFileT
 import { PEOPLE, type Person } from '@/data/peopleData'
 import { TOPICS } from '@/data/topicData'
 import { APP_FILES, DOCUMENT_FILES } from '@/data/filesData'
+import { useTopicMutations } from '@/lib/topicMutations'
 import { MentionMenu } from '@/components/ui/MentionMenu'
 import { FilesMenu, type FilesMenuItem, type FilesMenuRef } from '@/components/ui/FilesMenu'
 
@@ -307,11 +308,16 @@ class FilesSuggestionPopup {
 }
 
 function TopicMentionView({ node }: NodeViewProps) {
-  const { label, isResolved } = node.attrs
+  const { id, label, isResolved } = node.attrs
+  // Live runtime resolution overrides the snapshot stored in the node when it was
+  // inserted, so an inline [Topic] tag's icon stays in sync with the topic's
+  // current resolved state across the app.
+  const { isTopicResolved } = useTopicMutations()
+  const liveResolved = id ? isTopicResolved(String(id)) : isResolved
   return (
     <NodeViewWrapper as="span" className="inline-flex items-center gap-1 rounded-sm px-1 bg-bg-active text-text-primary text-sm font-normal select-none cursor-default" style={{ verticalAlign: 'text-bottom', height: '1.4em' }}>
       <span className="relative inline-flex items-center justify-center w-4 h-4 shrink-0">
-        {isResolved ? (
+        {liveResolved ? (
           <IconCircleCheck size={16} stroke={1.5} className="text-success-default" />
         ) : (
           <IconCircleDashed size={16} stroke={1.5} className="text-text-secondary" />

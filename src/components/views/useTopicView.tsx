@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react'
-import { IconPlus, IconX } from '@tabler/icons-react'
+import { IconPlus, IconX, IconPencilMinus } from '@tabler/icons-react'
 import { ConversationHeader } from '@/components/ConversationHeader'
 import { ConversationCard } from '@/components/ConversationCard'
 import { ThreadPanel } from '@/components/ThreadPanel'
@@ -9,17 +9,22 @@ import { ComposeBox, type SendPayload } from '@/components/ui/ComposeBox'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { TopicTabs, type TopicTab } from '@/components/ui/TopicTabs'
 import { IconButton } from '@/components/ui/IconButton'
-import { TOPIC_CONVERSATIONS, type ConversationData, type HighlightType } from '@/data/topicData'
-import { TOPIC_HUDDLES, type Huddle } from '@/data/huddleData'
+import { Button } from '@/components/ui/Button'
+import { TOPIC_CONVERSATIONS, type ConversationData, type HighlightType, type ReactionData } from '@/data/topicData'
+import { DM_CONVERSATIONS } from '@/data/dmData'
+import { type Huddle } from '@/data/huddleData'
 import { PEOPLE } from '@/data/peopleData'
 import { REPLIES, type ReplyData } from '@/data/replyData'
 import { useStarred } from '@/lib/starred'
+import { useTopicStore } from '@/lib/topicStore'
+import { useTopicMutations } from '@/lib/topicMutations'
+import { useLastSelection } from '@/lib/lastSelection'
+import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
 interface UseTopicViewArgs {
   topicId: string | null
   topicTitle?: string
-  topicResolved?: boolean
   /** Override the default toggleTopic-and-stay behavior (e.g. Desk wants to clear selection on unstar) */
   onToggleStarred?: () => void
   /** When false, suppress non-urgent hasNewMessage/hasNewReply flags. Urgent flags always show. */
@@ -34,41 +39,63 @@ interface ViewSlots {
 export function useTopicView({
   topicId,
   topicTitle,
-  topicResolved = false,
   onToggleStarred,
   showUnreads = false,
 }: UseTopicViewArgs): ViewSlots {
   const [activeTab, setActiveTab] = useState<TopicTab>('conversations')
   const scrollRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
+  const { setPendingDmThreadId } = useLastSelection()
   const { isTopicStarred, toggleTopic } = useStarred()
+  const { getHuddlesForTopic, findTopic } = useTopicStore()
+  const topic = topicId != null ? findTopic(topicId) : undefined
 
-  // Tracks explicit resolve/reopen actions keyed by conversation id
-  const [resolvedOverrides, setResolvedOverrides] = useState<Record<string, { resolved: boolean; resolvedBy?: string; message?: string }>>({})
+  // Mutation state lives at the app level so a topic's runtime data (sent
+  // messages, replies, resolutions, etc.) survives navigating away and back.
+  const {
+    sentMessages,
+    setSentMessages,
+    deletedIds,
+    setDeletedIds,
+    resolvedOverrides,
+    setResolvedOverrides,
+    sentReplies,
+    setSentReplies,
+    bodyOverrides,
+    setBodyOverrides,
+    highlightOverrides,
+    setHighlightOverrides,
+    createdHuddles,
+    setCreatedHuddles,
+    deletedHuddleIds,
+    setDeletedHuddleIds,
+    huddleBodyOverrides,
+    setHuddleBodyOverrides,
+    reactionOverrides,
+    setReactionOverrides,
+    isTopicResolved,
+  } = useTopicMutations()
 
-  const [sentMessages, setSentMessages] = useState<Record<string, ConversationData[]>>({})
-  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
+  // Derived: a topic is "resolved" iff every non-deleted conv in it is resolved.
+  // Single source of truth for the dashed-circle vs checkmark icon everywhere.
+  const topicResolved = topicId != null ? isTopicResolved(topicId) : false
 
-  // Thread state
+  const handleReactionsChange = (id: string, next: ReactionData[]) =>
+    setReactionOverrides((prev) => ({ ...prev, [id]: next }))
+
+  // Thread + huddle UI state stays local — it's transient view state, not data.
   const [threadConvId, setThreadConvId] = useState<string | null>(null)
-  const [sentReplies, setSentReplies] = useState<Record<string, ReplyData[]>>({})
-
-  // Huddle state
   const huddleCreateRef = useRef<HTMLDivElement>(null)
   const [selectedHuddleId, setSelectedHuddleId] = useState<string | null>(null)
   const [isCreatingHuddle, setIsCreatingHuddle] = useState(false)
   const [huddleRecipients, setHuddleRecipients] = useState<string[]>([])
   const [huddleToQuery, setHuddleToQuery] = useState('')
   const [huddleToFocused, setHuddleToFocused] = useState(false)
-  const [createdHuddles, setCreatedHuddles] = useState<Record<string, Huddle[]>>({})
-  const [deletedHuddleIds, setDeletedHuddleIds] = useState<Set<string>>(new Set())
-  const [huddleBodyOverrides, setHuddleBodyOverrides] = useState<Record<string, string>>({})
-  const [highlightOverrides, setHighlightOverrides] = useState<Record<string, HighlightType | undefined>>({})
-  const [bodyOverrides, setBodyOverrides] = useState<Record<string, string>>({})
 
   const currentGroups = topicId != null ? (TOPIC_CONVERSATIONS[topicId] ?? []) : []
   const currentSent = topicId != null ? (sentMessages[topicId] ?? []) : []
   const currentHuddles = topicId != null
-    ? [...(TOPIC_HUDDLES[topicId] ?? []), ...(createdHuddles[topicId] ?? [])]
+    ? [...getHuddlesForTopic(topicId), ...(createdHuddles[topicId] ?? [])]
         .filter((h) => !deletedHuddleIds.has(h.id))
         .map((h) => {
           const override = huddleBodyOverrides[h.conversation.id]
@@ -77,14 +104,39 @@ export function useTopicView({
         })
     : []
 
+  /** When the topic was promoted from a DM, this is the seed huddle. Drives the DM-origin empty state. */
+  const originHuddle = currentHuddles.find((h) => h.originDmId !== undefined)
+  const hasAnyPublicMessages =
+    currentGroups.some((g) => g.convs.some((c) => !deletedIds.has(c.id))) || currentSent.length > 0
+
   const allCurrentConvs = [
     ...currentGroups.flatMap((g) => g.convs).filter((c) => !deletedIds.has(c.id)),
     ...currentSent,
   ]
   const allHuddleConvs = currentHuddles.map((h) => h.conversation)
 
+  /** When the open thread is a promoted huddle's seed message, find that huddle so we can
+   *  source the seed message from DM_CONVERSATIONS and render the promotion divider + button. */
+  const promotedHuddleForThread = threadConvId
+    ? currentHuddles.find((h) => h.seedMessageId === threadConvId && h.originDmId !== undefined)
+    : undefined
+
+  /** Look up the seed message from DM_CONVERSATIONS when threadConvId points there. */
+  const dmSeedConv: ConversationData | undefined = (() => {
+    if (!promotedHuddleForThread || promotedHuddleForThread.originDmId === undefined) return undefined
+    const groups = DM_CONVERSATIONS[promotedHuddleForThread.originDmId]
+    if (!groups) return undefined
+    for (const g of groups) {
+      const found = g.convs.find((c) => c.id === threadConvId)
+      if (found) return found
+    }
+    return undefined
+  })()
+
   const threadConvRaw = threadConvId
-    ? allCurrentConvs.find((c) => c.id === threadConvId) ?? allHuddleConvs.find((c) => c.id === threadConvId)
+    ? allCurrentConvs.find((c) => c.id === threadConvId)
+      ?? allHuddleConvs.find((c) => c.id === threadConvId)
+      ?? dmSeedConv
     : null
   const threadConv = threadConvRaw
     ? {
@@ -113,9 +165,10 @@ export function useTopicView({
   const openCount     = allCurrentConvs.filter((c) => !isConvResolved(c.id, c.isResolved)).length
   const resolvedCount = allCurrentConvs.filter((c) =>  isConvResolved(c.id, c.isResolved)).length
 
-  // Topic members = unique authors across both top-level conversations AND replies.
+  // Topic members = invitees (added when topic was created) ∪ authors who have posted (top-level + replies).
   const replyAuthors = allCurrentConvs.flatMap((c) => (REPLIES[c.id] ?? []).map((r) => r.authorName))
   const topicMembers = Array.from(new Set([
+    ...(topic?.invitees ?? []),
     ...allCurrentConvs.map((c) => c.authorName),
     ...replyAuthors,
   ]))
@@ -130,12 +183,14 @@ export function useTopicView({
   const handleSendReply = ({ text, resolution, highlightType }: SendPayload) => {
     if (!threadConvId) return
     if (text) {
+      const now = Date.now()
       const newReply: ReplyData = {
-        id: `reply_${Date.now()}`,
+        id: `reply_${now}`,
         authorName: 'You',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         body: text,
         highlightType,
+        createdAtMs: now,
       }
       setSentReplies((prev) => ({ ...prev, [threadConvId]: [...(prev[threadConvId] ?? []), newReply] }))
     }
@@ -319,7 +374,7 @@ export function useTopicView({
                       authorName={c.authorName}
                       timestamp={c.timestamp}
                       body={bodyOverrides[c.id] ?? c.body}
-                      reactions={c.reactions}
+                      reactions={reactionOverrides[c.id] ?? c.reactions}
                       highlightType={c.id in highlightOverrides ? highlightOverrides[c.id] : c.highlightType}
                       replyCount={(REPLIES[c.id]?.length ?? c.replyCount ?? 0) + (sentReplies[c.id]?.length ?? 0)}
                       hasNewMessage={c.hasNewMessage && (c.isUrgent || showUnreads)}
@@ -329,7 +384,8 @@ export function useTopicView({
                       resolutionMessage={getConvResolutionMsg(c.id, c.resolutionMessage)}
                       showCreateTopic={false}
                       isSelected={threadConvId === c.id}
-                      onResolvedChange={(resolved) => handleResolvedChange(c.id, resolved, resolved ? 'You' : undefined)}
+                      onResolvedChange={(resolved, resolvedBy, message) => handleResolvedChange(c.id, resolved, resolved ? (resolvedBy ?? 'You') : undefined, message)}
+                      onReactionsChange={(next) => handleReactionsChange(c.id, next)}
                       onHighlightChange={(hl) => handleHighlightChange(c.id, hl)}
                       onBodyChange={(b) => handleBodyChange(c.id, b)}
                       onClick={() => openThread(c.id)}
@@ -349,6 +405,7 @@ export function useTopicView({
                       authorName={m.authorName}
                       timestamp={m.timestamp}
                       body={bodyOverrides[m.id] ?? m.body}
+                      reactions={reactionOverrides[m.id] ?? m.reactions}
                       highlightType={m.id in highlightOverrides ? highlightOverrides[m.id] : m.highlightType}
                       replyCount={sentReplies[m.id]?.length ?? 0}
                       isResolved={isConvResolved(m.id, m.isResolved)}
@@ -356,7 +413,8 @@ export function useTopicView({
                       resolutionMessage={getConvResolutionMsg(m.id, m.resolutionMessage)}
                       showCreateTopic={false}
                       isSelected={threadConvId === m.id}
-                      onResolvedChange={(resolved) => handleResolvedChange(m.id, resolved, resolved ? 'You' : undefined)}
+                      onResolvedChange={(resolved, resolvedBy, message) => handleResolvedChange(m.id, resolved, resolved ? (resolvedBy ?? 'You') : undefined, message)}
+                      onReactionsChange={(next) => handleReactionsChange(m.id, next)}
                       onHighlightChange={(hl) => handleHighlightChange(m.id, hl)}
                       onBodyChange={(b) => handleBodyChange(m.id, b)}
                       onClick={() => openThread(m.id)}
@@ -368,6 +426,24 @@ export function useTopicView({
               )}
             </div>
           </div>
+          {originHuddle && !hasAnyPublicMessages && originHuddle.originDmId != null && (
+            <div className="px-3 pt-2">
+              <div className="bg-accent-muted rounded-lg p-2 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="bg-accent-primary rounded-md size-6 flex items-center justify-center shrink-0">
+                    <IconPencilMinus size={16} stroke={1.5} className="text-accent-muted" />
+                  </div>
+                  <span className="text-[14px] leading-[1.4] text-text-primary truncate">
+                    This is the beginning of your conversations in{' '}
+                    <span className="font-medium">{topicTitle}</span>
+                  </span>
+                </div>
+                <Button variant="muted" size="small" className="shrink-0" onClick={() => {/* TODO: invite-members dialog */}}>
+                  Invite members
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="p-3">
             <ComposeBox onSend={handleSend} />
           </div>
@@ -398,24 +474,27 @@ export function useTopicView({
           ) : (
             <div className="flex-1 overflow-y-auto px-4 py-4">
               <div className="grid grid-cols-2 gap-3">
-                {currentHuddles.map((huddle) => (
-                  <HuddleCard
-                    key={huddle.id}
-                    huddle={huddle}
-                    isSelected={selectedHuddleId === huddle.id}
-                    onClick={() => {
-                      setSelectedHuddleId(huddle.id)
-                      setThreadConvId(huddle.conversation.id)
-                      cancelHuddleCreation()
-                    }}
-                    onReply={() => {
-                      setSelectedHuddleId(huddle.id)
-                      setThreadConvId(huddle.conversation.id)
-                      cancelHuddleCreation()
-                    }}
-                    onDelete={() => handleDeleteHuddle(huddle.id)}
-                  />
-                ))}
+                {currentHuddles.map((huddle) => {
+                  // Promoted-from-DM huddles route the thread to the original DM
+                  // message id so replies/reactions/highlights mirror across both
+                  // entry points (DM thread panel and huddle thread panel).
+                  const threadId = huddle.seedMessageId ?? huddle.conversation.id
+                  const openHuddle = () => {
+                    setSelectedHuddleId(huddle.id)
+                    setThreadConvId(threadId)
+                    cancelHuddleCreation()
+                  }
+                  return (
+                    <HuddleCard
+                      key={huddle.id}
+                      huddle={huddle}
+                      isSelected={selectedHuddleId === huddle.id}
+                      onClick={openHuddle}
+                      onReply={openHuddle}
+                      onDelete={() => handleDeleteHuddle(huddle.id)}
+                    />
+                  )
+                })}
                 <div className={cn(
                   'flex flex-col items-center justify-center gap-2 h-[130px]',
                   currentHuddles.length % 2 === 0 && 'col-span-2'
@@ -522,6 +601,51 @@ export function useTopicView({
           ? currentHuddles.find((h) => h.id === selectedHuddleId)?.members.length
           : undefined
       }
+      replyBodyOverrides={bodyOverrides}
+      replyHighlightOverrides={highlightOverrides}
+      replyReactionOverrides={reactionOverrides}
+      initialReactions={threadConvId ? reactionOverrides[threadConvId] ?? threadConv.reactions : threadConv.reactions}
+      onInitialReactionsChange={
+        threadConvId
+          ? (next) => setReactionOverrides((prev) => ({ ...prev, [threadConvId]: next }))
+          : undefined
+      }
+      initialHighlightType={threadConv.highlightType}
+      onInitialHighlightChange={
+        threadConvId
+          ? (hl) => setHighlightOverrides((prev) => ({ ...prev, [threadConvId]: hl }))
+          : undefined
+      }
+      promotionDivider={
+        promotedHuddleForThread && topic
+          ? {
+              topicId: topic.id,
+              topicTitle: topic.title,
+              topicResolved,
+              dateLabel: promotedHuddleForThread.promotedAt ?? '',
+              promotedAtMs: promotedHuddleForThread.promotedAtMs,
+              // We're already on this topic page; clicking the link should switch to
+              // the Conversations tab and close the thread panel rather than re-issue
+              // a no-op navigation that wouldn't reset local tab state.
+              onTopicClick: () => {
+                setActiveTab('conversations')
+                closeThread()
+              },
+            }
+          : undefined
+      }
+      onOpenInDm={
+        promotedHuddleForThread && promotedHuddleForThread.originDmId !== undefined && threadConvId
+          ? () => {
+              const dmId = promotedHuddleForThread.originDmId
+              // Stage the pending thread id BEFORE navigating so the DM view can consume
+              // it on mount. Context state is more reliable than location.state across
+              // route transitions (location.state can be reset by replace navigations).
+              setPendingDmThreadId(threadConvId)
+              navigate(`/people/${dmId}`)
+            }
+          : undefined
+      }
       onClose={closeThread}
       onSendReply={handleSendReply}
       onDeleteReply={handleDeleteReply}
@@ -530,6 +654,9 @@ export function useTopicView({
           ? (newBody: string) => setHuddleBodyOverrides((prev) => ({ ...prev, [threadConvId]: newBody }))
           : undefined
       }
+      onReplyBodyChange={(replyId, body) => setBodyOverrides((prev) => ({ ...prev, [replyId]: body }))}
+      onReplyHighlightChange={(replyId, hl) => setHighlightOverrides((prev) => ({ ...prev, [replyId]: hl }))}
+      onReplyReactionsChange={(replyId, next) => setReactionOverrides((prev) => ({ ...prev, [replyId]: next }))}
     />
   ) : undefined
 

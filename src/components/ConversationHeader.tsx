@@ -64,7 +64,7 @@ export function ConversationHeader({
             <TopicState
               type="topic"
               status={isResolved ? 'resolved' : 'unresolved'}
-              iconClassName="text-text-primary"
+              iconClassName="text-text-secondary"
             />
           ) : (
             <Avatar size={16} src={avatarSrc} alt={name} />

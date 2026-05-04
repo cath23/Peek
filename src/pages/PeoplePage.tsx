@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { AppShell } from '@/layouts/AppShell'
 import { ContainerHeader } from '@/components/ContainerHeader'
 import { PersonRow } from '@/components/ui/PersonRow'
@@ -9,7 +9,11 @@ import { StarredSection, type StarredItem } from '@/components/ui/StarredSection
 import { useDmConversationView } from '@/components/views/useDmConversationView'
 import { useStarred } from '@/lib/starred'
 import { useDebug } from '@/lib/debug'
+import { useTopicStore } from '@/lib/topicStore'
+import { useLastSelection } from '@/lib/lastSelection'
+import { useToast } from '@/lib/toast'
 import { dmHasUnread } from '@/data/dmData'
+import type { StartTopicResult } from '@/components/CreateTopicDialog'
 
 const DMS = [
   { id: 1, name: 'Alice Johnson',  isUnread: false },
@@ -34,13 +38,40 @@ const ALL_ITEMS = [...DMS, ...TEAMS]
 const DM_IDS = new Set(DMS.map((d) => d.id))
 
 export function PeoplePage() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { showToast } = useToast()
+  const { createTopicFromDm } = useTopicStore()
+  const { dmId: lastDmId, setLastDmId } = useLastSelection()
   const { id: routeId } = useParams<{ id: string }>()
-  const initialId = routeId ? Number(routeId) : null
-  const [selectedId, setSelectedId] = useState<number | null>(initialId)
   const [teamsExpanded, setTeamsExpanded] = useState(true)
   const { entries: starredEntries } = useStarred()
   const { state: debug } = useDebug()
   const showUnreads = debug.unreads.people
+
+  // URL is the source of truth — derive selection from routeId.
+  const selectedId = routeId ? Number(routeId) : lastDmId ?? null
+
+  const handleSelect = (id: number) => {
+    navigate(`/people/${id}`)
+  }
+
+  const handleStartTopicFromDm = (dmId: number, dmName: string, seedMessageId: string, data: StartTopicResult) => {
+    const { topicId } = createTopicFromDm({
+      title: data.title,
+      dmId,
+      dmName,
+      invitees: data.invitees,
+      seedMessageId,
+    })
+    const previousPath = `${location.pathname}${location.search}`
+    navigate(`/topics/${topicId}`)
+    showToast({
+      label: 'Topic created',
+      actionLabel: 'Back to conversation',
+      onAction: () => navigate(previousPath),
+    })
+  }
 
   const starredDmItems: StarredItem[] = starredEntries
     .filter((e) => e.kind === 'dm')
@@ -61,8 +92,13 @@ export function PeoplePage() {
   const visibleDms = sortedDms.filter((dm) => !starredDmIds.has(dm.id))
 
   useEffect(() => {
-    if (routeId) setSelectedId(Number(routeId))
-  }, [routeId])
+    if (routeId && DM_IDS.has(Number(routeId))) {
+      setLastDmId(Number(routeId))
+    } else if (!routeId && lastDmId != null) {
+      // Returning to /people with no id — restore last selection in URL.
+      navigate(`/people/${lastDmId}`, { replace: true })
+    }
+  }, [routeId, lastDmId, navigate, setLastDmId])
 
   const selectedItem = selectedId ? ALL_ITEMS.find((i) => i.id === selectedId) : null
   const isDm = selectedId != null && DM_IDS.has(selectedId)
@@ -71,6 +107,7 @@ export function PeoplePage() {
     dmId: isDm ? selectedId : null,
     dmName: isDm ? selectedItem?.name : undefined,
     showUnreads,
+    onStartTopicFromDm: handleStartTopicFromDm,
   })
 
   return (
@@ -88,7 +125,7 @@ export function PeoplePage() {
             <StarredSection
               items={starredDmItems}
               selectedId={selectedId}
-              onSelect={setSelectedId}
+              onSelect={handleSelect}
             />
 
             <Divider className="my-2" />
@@ -100,7 +137,7 @@ export function PeoplePage() {
                 type="DM"
                 isUnread={showUnreads && dmHasUnread(dm.id)}
                 isSelected={selectedId === dm.id}
-                onClick={() => setSelectedId(dm.id)}
+                onClick={() => handleSelect(dm.id)}
               />
             ))}
 
@@ -119,7 +156,7 @@ export function PeoplePage() {
                 name={t.name}
                 type="team"
                 isSelected={selectedId === t.id}
-                onClick={() => setSelectedId(t.id)}
+                onClick={() => handleSelect(t.id)}
               />
             ))}
           </div>

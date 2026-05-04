@@ -8,6 +8,14 @@ export interface Huddle {
   lastActivity: string        // display timestamp
   /** The opening message - same shape as a conversation */
   conversation: ConversationData
+  /** When set, this huddle was promoted from a DM. Messages are sourced from DM_CONVERSATIONS[originDmId]. */
+  originDmId?: number
+  /** Display timestamp for when the DM was promoted into this huddle. Used to render the "Started topic" divider. */
+  promotedAt?: string
+  /** Numeric promotion time (ms since epoch). Drives chronological partitioning of replies around the divider. */
+  promotedAtMs?: number
+  /** The DM message id that was used as the seed when starting the topic. The huddle anchor renders above this specific message. */
+  seedMessageId?: string
 }
 
 /**
@@ -118,4 +126,18 @@ export const TOPIC_HUDDLES: Record<string, Huddle[]> = {
       },
     },
   ],
+}
+
+/** Find the huddle that was promoted from the given DM, if any. */
+export function getHuddleByOriginDm(dmId: number): Huddle | undefined {
+  for (const huddles of Object.values(TOPIC_HUDDLES)) {
+    const match = huddles.find((h) => h.originDmId === dmId)
+    if (match) return match
+  }
+  return undefined
+}
+
+/** Find the DM-origin huddle for a given topic (the one that seeded the topic), if any. */
+export function getOriginHuddleForTopic(topicId: string): Huddle | undefined {
+  return TOPIC_HUDDLES[topicId]?.find((h) => h.originDmId !== undefined)
 }

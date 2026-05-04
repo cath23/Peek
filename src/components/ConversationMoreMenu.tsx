@@ -17,6 +17,8 @@ interface ConversationMoreMenuProps {
   isTopic?: boolean
   isResolved?: boolean
   showCreateTopic?: boolean
+  /** True when the message was authored by the current user. Gates Edit/Delete. */
+  isOwnMessage?: boolean
   currentHighlight?: HighlightType
   onHighlight?: (type: HighlightType | undefined) => void
   onCreateTopic?: () => void
@@ -72,6 +74,7 @@ export function ConversationMoreMenu({
   isTopic = false,
   isResolved = false,
   showCreateTopic = true,
+  isOwnMessage = false,
   currentHighlight,
   onHighlight,
   onCreateTopic,
@@ -108,6 +111,7 @@ export function ConversationMoreMenu({
 
   return (
     <div
+      data-interactive
       className={cn(
         'bg-bg-elevated border border-border-default rounded-lg shadow-lg w-[244px] p-2 flex flex-col gap-2',
         className
@@ -129,7 +133,7 @@ export function ConversationMoreMenu({
         ) : showCreateTopic ? (
           <MenuItem
             icon={<IconCircleDashed size={16} stroke={1.5} className="text-text-secondary" />}
-            label="Create topic"
+            label="Start topic"
             onClick={onCreateTopic}
           />
         ) : null}
@@ -212,15 +216,18 @@ export function ConversationMoreMenu({
       <Divider className="mx-0" />
 
       <div className="flex flex-col">
-        {!isTopic && (
+        {!isTopic && isOwnMessage && (
           <MenuItem label="Edit message" onClick={onEditMessage} />
         )}
         <MenuItem label="View details" onClick={onViewDetails} />
       </div>
 
-      <Divider className="mx-0" />
-
-      <MenuItem label="Delete" destructive onClick={onDelete} />
+      {isOwnMessage && (
+        <>
+          <Divider className="mx-0" />
+          <MenuItem label="Delete" destructive onClick={onDelete} />
+        </>
+      )}
     </div>
   )
 }

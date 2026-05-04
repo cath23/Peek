@@ -1,11 +1,9 @@
-import type { TopicStateStatus } from '@/components/ui/TopicState'
-
 export type ScreenerItem =
   | {
       id: string
       kind: 'topic'
+      topicId: string
       topicTitle: string
-      topicStatus: TopicStateStatus
       preview: string
     }
   | {
@@ -20,8 +18,8 @@ export const SCREENER_ITEMS: ScreenerItem[] = [
   {
     id: 'sc_1',
     kind: 'topic',
+    topicId: '7',
     topicTitle: 'Updates on the new office layout',
-    topicStatus: 'unresolved',
     preview:
       'Facilities shared the Q3 floor plan and is asking each team for desk allocations by Friday. Worth a look before the deadline so design gets the corner cluster we discussed.',
   },

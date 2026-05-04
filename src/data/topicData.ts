@@ -2,6 +2,8 @@ export interface Topic {
   id: string
   title: string
   isResolved: boolean
+  /** Names of people invited to the topic when it was created. Surfaces in the members pill. */
+  invitees?: string[]
 }
 
 export const TOPICS: Topic[] = [
@@ -546,22 +548,6 @@ export const TOPIC_CONVERSATIONS: Record<string, ConvGroup[]> = {
       ],
     },
   ],
-}
-
-/**
- * A topic is fully resolved when every conversation in it is resolved.
- * Used by topic lists (TopicsPage, DeskPage) so the row status reflects
- * actual conversation state rather than a manually-synced flag.
- */
-export function isTopicFullyResolved(topicId: string): boolean {
-  const groups = TOPIC_CONVERSATIONS[topicId]
-  if (!groups || groups.length === 0) return false
-  for (const g of groups) {
-    for (const c of g.convs) {
-      if (!c.isResolved) return false
-    }
-  }
-  return true
 }
 
 /**

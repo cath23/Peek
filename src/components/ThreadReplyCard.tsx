@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { PeekMention, UrgentMention, TopicMention, FileMention, isSuggestionActive } from '@/extensions/mention'
-import { ResolutionBlock, extractResolution } from '@/extensions/resolution'
+import { ResolutionBlock } from '@/extensions/resolution'
 import { HighlightTag, extractHighlightType } from '@/extensions/highlight'
 import {
   IconMoodPlus,
@@ -31,6 +31,7 @@ import { Reaction as ReactionPill } from './ui/Reaction'
 import { Divider } from './ui/Divider'
 import { PEOPLE } from '@/data/peopleData'
 import { TOPICS, type ReactionData } from '@/data/topicData'
+import { useTopicMutations } from '@/lib/topicMutations'
 import { APP_FILES, DOCUMENT_FILES } from '@/data/filesData'
 import { cn } from '@/lib/utils'
 import { HighlightPill, HighlightSwatch } from './ui/HighlightPill'
@@ -59,7 +60,7 @@ const MENTION_RE = new RegExp(
   'g'
 )
 
-function renderWithMentions(text: string): React.ReactNode {
+function renderWithMentions(text: string, isTopicResolved: (id: string) => boolean): React.ReactNode {
   const parts = text.split(MENTION_RE)
   if (parts.length === 1) return text
   return (
@@ -69,10 +70,11 @@ function renderWithMentions(text: string): React.ReactNode {
           const title = part.slice(1, -1)
           const topic = TOPICS.find((t) => t.title === title)
           if (topic) {
+            const resolved = isTopicResolved(topic.id)
             return (
               <span key={i} className="inline-flex items-center gap-1 rounded-sm px-1 mx-0.5 bg-bg-active text-text-primary text-sm font-normal select-none" style={{ verticalAlign: 'text-bottom', height: '1.4em' }}>
                 <span className="relative inline-flex items-center justify-center w-4 h-4 shrink-0">
-                  {topic.isResolved ? (
+                  {resolved ? (
                     <IconCircleCheck size={16} stroke={1.5} className="text-success-default" />
                   ) : (
                     <IconCircleDashed size={16} stroke={1.5} className="text-text-secondary" />
@@ -163,7 +165,7 @@ function parseBodySegments(body: string): BodySegment[] {
   return segments
 }
 
-function MessageBody({ body }: { body: string }) {
+function MessageBody({ body, isTopicResolved }: { body: string; isTopicResolved: (id: string) => boolean }) {
   const segments = parseBodySegments(body)
   return (
     <div className="flex flex-col gap-1 text-sm text-text-secondary leading-[1.4]">
@@ -174,7 +176,7 @@ function MessageBody({ body }: { body: string }) {
               {seg.items.map((item, j) => (
                 <li key={j} className="flex gap-2">
                   <span className="shrink-0 mt-px">•</span>
-                  <span>{renderWithMentions(item)}</span>
+                  <span>{renderWithMentions(item, isTopicResolved)}</span>
                 </li>
               ))}
             </ul>
@@ -186,7 +188,7 @@ function MessageBody({ body }: { body: string }) {
               {seg.items.map((item, j) => (
                 <li key={j} className="flex gap-2">
                   <span className="shrink-0 text-text-muted">{j + 1}.</span>
-                  <span>{renderWithMentions(item)}</span>
+                  <span>{renderWithMentions(item, isTopicResolved)}</span>
                 </li>
               ))}
             </ol>
@@ -197,7 +199,7 @@ function MessageBody({ body }: { body: string }) {
             {seg.lines.map((line, j) => (
               <span key={j}>
                 {j > 0 && <br />}
-                {renderWithMentions(line)}
+                {renderWithMentions(line, isTopicResolved)}
               </span>
             ))}
           </p>
@@ -307,11 +309,13 @@ function serializeTiptapToText(editor: ReturnType<typeof useEditor>): string {
 
 // ── Reply More Menu ──
 
-function ReplyMoreMenu({ onEdit, onDelete, currentHighlight, onHighlight, className }: {
+function ReplyMoreMenu({ onEdit, onDelete, currentHighlight, onHighlight, isOwnMessage = false, className }: {
   onEdit?: () => void
   onDelete?: () => void
   currentHighlight?: HighlightType
   onHighlight?: (type: HighlightType | undefined) => void
+  /** True when the reply was authored by "You" - gates Edit/Delete entries. */
+  isOwnMessage?: boolean
   className?: string
 }) {
   const [showHighlightSub, setShowHighlightSub] = useState(false)
@@ -339,12 +343,14 @@ function ReplyMoreMenu({ onEdit, onDelete, currentHighlight, onHighlight, classN
   return (
     <div className={cn('bg-bg-elevated border border-border-default rounded-lg shadow-lg w-[180px] p-2 flex flex-col gap-2', className)}>
       <div className="flex flex-col">
-        <div
-          className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-bg-hover w-full"
-          onClick={onEdit}
-        >
-          <span className="flex-1 text-sm text-text-secondary">Edit message</span>
-        </div>
+        {isOwnMessage && (
+          <div
+            className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-bg-hover w-full"
+            onClick={onEdit}
+          >
+            <span className="flex-1 text-sm text-text-secondary">Edit message</span>
+          </div>
+        )}
         {onHighlight && (
           <div className="relative">
             <div
@@ -397,13 +403,17 @@ function ReplyMoreMenu({ onEdit, onDelete, currentHighlight, onHighlight, classN
           </div>
         )}
       </div>
-      <Divider className="mx-0" />
-      <div
-        className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-bg-hover w-full"
-        onClick={onDelete}
-      >
-        <span className="flex-1 text-sm text-error-default">Delete</span>
-      </div>
+      {isOwnMessage && (
+        <>
+          <Divider className="mx-0" />
+          <div
+            className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-bg-hover w-full"
+            onClick={onDelete}
+          >
+            <span className="flex-1 text-sm text-error-default">Delete</span>
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -422,6 +432,7 @@ interface ThreadReplyCardProps {
   onHighlightChange?: (type: HighlightType | undefined) => void
   onDelete?: () => void
   onBodyChange?: (newBody: string) => void
+  onReactionsChange?: (reactions: ReactionData[]) => void
   className?: string
 }
 
@@ -437,6 +448,7 @@ export function ThreadReplyCard({
   onHighlightChange,
   onDelete,
   onBodyChange,
+  onReactionsChange,
   className,
 }: ThreadReplyCardProps) {
   const [isHovered, setIsHovered] = useState(false)
@@ -445,7 +457,11 @@ export function ThreadReplyCard({
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const moreButtonRef = useRef<HTMLDivElement>(null)
 
+  const { isTopicResolved } = useTopicMutations()
+
   const [reactionsState, setReactionsState] = useState<ReactionData[]>(reactions ?? [])
+  // Sync local reactions state when the parent passes a new override (e.g. after navigation back).
+  useEffect(() => { setReactionsState(reactions ?? []) }, [reactions])
   const [highlightState, setHighlightState] = useState<HighlightType | undefined>(highlightType)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [reactionPickerPos, setReactionPickerPos] = useState<{ top: number; right: number } | null>(null)
@@ -638,16 +654,20 @@ export function ThreadReplyCard({
 
   const handleReact = (emoji: string) => {
     setReactionsState((prev) => {
+      let next: ReactionData[]
       const existing = prev.find((r) => r.emoji === emoji && r.owner === 'yours')
       if (existing) {
-        if (existing.count <= 1) return prev.filter((r) => r !== existing)
-        return prev.map((r) => r === existing ? { ...r, count: r.count - 1 } : r)
+        next = existing.count <= 1
+          ? prev.filter((r) => r !== existing)
+          : prev.map((r) => (r === existing ? { ...r, count: r.count - 1 } : r))
+      } else {
+        const othersExisting = prev.find((r) => r.emoji === emoji && r.owner === 'others')
+        next = othersExisting
+          ? prev.map((r) => (r === othersExisting ? { ...r, count: r.count + 1, owner: 'yours' as const } : r))
+          : [...prev, { emoji, count: 1, owner: 'yours' as const }]
       }
-      const othersExisting = prev.find((r) => r.emoji === emoji && r.owner === 'others')
-      if (othersExisting) {
-        return prev.map((r) => r === othersExisting ? { ...r, count: r.count + 1, owner: 'yours' as const } : r)
-      }
-      return [...prev, { emoji, count: 1, owner: 'yours' as const }]
+      onReactionsChange?.(next)
+      return next
     })
     setShowReactionPicker(false)
   }
@@ -680,7 +700,7 @@ export function ThreadReplyCard({
         {isEditing ? (
           <div className="p-2">
             <div className="flex items-start gap-2">
-              <Avatar size={24} src={authorAvatarSrc} alt={authorName} className="shrink-0 mt-3" />
+              <Avatar size={24} src={authorAvatarSrc} alt={authorName} className="shrink-0 mt-1" />
               <div className="flex-1 min-w-0 bg-bg-inset border border-border-default rounded-lg p-3 flex flex-col gap-4">
                 <div className={cn('relative min-h-[20px] transition-all', (editHasUrgent || editHasHighlight) && 'border-l-[4px] border-border-strong pl-2')}>
                   <EditorContent editor={editEditor} />
@@ -726,7 +746,7 @@ export function ThreadReplyCard({
               )}
             </div>
             <div className="pl-8 pr-2 pt-1 pb-2 w-full overflow-hidden break-words">
-              <MessageBody body={bodyState} />
+              <MessageBody body={bodyState} isTopicResolved={isTopicResolved} />
             </div>
             {reactionsState.length > 0 && (
               <div className="flex items-center gap-2 pl-8 pt-1 pb-2 w-full">
@@ -772,6 +792,7 @@ export function ThreadReplyCard({
               }}
             >
               <ReplyMoreMenu
+                isOwnMessage={authorName === 'You'}
                 onEdit={handleEditStart}
                 onDelete={handleDelete}
                 currentHighlight={highlightState}

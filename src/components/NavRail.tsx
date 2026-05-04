@@ -6,20 +6,31 @@ import {
   // IconFiles,
 } from '@tabler/icons-react'
 import { NavItem } from './NavItem'
-
-const NAV_ITEMS = [
-  { to: '/desk',   icon: <IconNote size={16} stroke={1.5} />,     label: 'Desk' },
-  { to: '/topics', icon: <IconMessage2 size={16} stroke={1.5} />, label: 'Topics' },
-  { to: '/people', icon: <IconUsers size={16} stroke={1.5} />,    label: 'People' },
-  // { to: '/views',  icon: <IconBrackets size={16} stroke={1.5} />, label: 'Views' },
-  // { to: '/files',  icon: <IconFiles size={16} stroke={1.5} />,    label: 'Files' },
-]
+import { useLastSelection } from '@/lib/lastSelection'
 
 export function NavRail() {
+  const { topicId, dmId } = useLastSelection()
+
+  const navItems = [
+    { to: '/desk', icon: <IconNote size={16} stroke={1.5} />, label: 'Desk', match: '/desk' },
+    {
+      to: topicId ? `/topics/${topicId}` : '/topics',
+      icon: <IconMessage2 size={16} stroke={1.5} />,
+      label: 'Topics',
+      match: '/topics',
+    },
+    {
+      to: dmId != null ? `/people/${dmId}` : '/people',
+      icon: <IconUsers size={16} stroke={1.5} />,
+      label: 'People',
+      match: '/people',
+    },
+  ]
+
   return (
     <nav className="w-16 flex flex-col gap-2 items-start px-2 py-3 shrink-0">
-      {NAV_ITEMS.map((item) => (
-        <NavItem key={item.to} {...item} />
+      {navItems.map((item) => (
+        <NavItem key={item.label} {...item} />
       ))}
     </nav>
   )

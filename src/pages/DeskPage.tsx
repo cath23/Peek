@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { IconChevronRight, IconPlus, IconSortDescending } from '@tabler/icons-react'
 import { AppShell } from '@/layouts/AppShell'
 import { ContainerHeader } from '@/components/ContainerHeader'
@@ -10,11 +11,15 @@ import { useDmConversationView } from '@/components/views/useDmConversationView'
 import { useTopicView } from '@/components/views/useTopicView'
 import { SCREENER_ITEMS } from '@/data/screenerData'
 import { OPEN_WORK_ITEMS, URGENT_ITEMS } from '@/data/deskData'
-import { TOPICS, isTopicFullyResolved, topicHasUnread } from '@/data/topicData'
+import { topicHasUnread } from '@/data/topicData'
 import { dmHasUnread } from '@/data/dmData'
 import { useDebug } from '@/lib/debug'
 import { useStarred } from '@/lib/starred'
+import { useTopicStore } from '@/lib/topicStore'
+import { useTopicMutations } from '@/lib/topicMutations'
+import { useToast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
+import type { StartTopicResult } from '@/components/CreateTopicDialog'
 
 type SectionKey = 'urgent' | 'openWork' | 'starred'
 
@@ -33,10 +38,16 @@ const DM_NAMES: Record<number, string> = {
 }
 
 export function DeskPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { showToast } = useToast()
   const { state: debug } = useDebug()
   const { entries: starredAll, isDmStarred, isTopicStarred, toggleDm, toggleTopic } = useStarred()
+  const { topics: TOPICS, createTopicFromDm } = useTopicStore()
+  const { isTopicResolved } = useTopicMutations()
   const [selected, setSelected] = useState<Selected | null>(null)
   const [dismissedScreenerIds, setDismissedScreenerIds] = useState<Set<string>>(new Set())
+  const [dismissedOpenWorkIds, setDismissedOpenWorkIds] = useState<Set<string>>(new Set())
   const [starredExpanded, setStarredExpanded] = useState(true)
 
   const screenerItems = SCREENER_ITEMS
@@ -52,10 +63,15 @@ export function DeskPage() {
   const showPeopleUnreads = debug.unreads.people
 
   // Open Work is topics-only. Sort unread first when topic-unreads are visible.
-  const baseOpenWork = debug.desk.openWorkHasData ? OPEN_WORK_ITEMS : []
+  // Filter out items the user has dismissed via the row's X button.
+  const baseOpenWork = (debug.desk.openWorkHasData ? OPEN_WORK_ITEMS : [])
+    .filter((i) => !dismissedOpenWorkIds.has(i.id))
   const openWorkItems = showTopicUnreads
     ? [...baseOpenWork].sort((a, b) => Number(topicHasUnread(b.topicId)) - Number(topicHasUnread(a.topicId)))
     : baseOpenWork
+
+  const dismissOpenWork = (id: string) =>
+    setDismissedOpenWorkIds((prev) => new Set([...prev, id]))
 
   // Starred mixes DMs and topics. Sort each entry's unreadness based on its kind's toggle.
   const baseStarred = debug.desk.starredHasData ? starredAll : []
@@ -78,7 +94,7 @@ export function DeskPage() {
   const selectTopic = (topicId: string, section: SectionKey) => {
     const topic = TOPICS.find((t) => t.id === topicId)
     if (!topic) return
-    setSelected({ kind: 'topic', topicId, topicTitle: topic.title, topicResolved: isTopicFullyResolved(topicId), section })
+    setSelected({ kind: 'topic', topicId, topicTitle: topic.title, topicResolved: isTopicResolved(topicId), section })
   }
   const selectDm = (dmId: number, fallbackName: string, section: SectionKey) => {
     const dmName = DM_NAMES[dmId] ?? fallbackName
@@ -115,17 +131,34 @@ export function DeskPage() {
     }
   }
 
+  const handleStartTopicFromDm = (dmId: number, dmName: string, seedMessageId: string, data: StartTopicResult) => {
+    const { topicId } = createTopicFromDm({
+      title: data.title,
+      dmId,
+      dmName,
+      invitees: data.invitees,
+      seedMessageId,
+    })
+    const previousPath = `${location.pathname}${location.search}`
+    navigate(`/topics/${topicId}`)
+    showToast({
+      label: 'Topic created',
+      actionLabel: 'Back to conversation',
+      onAction: () => navigate(previousPath),
+    })
+  }
+
   // Both hooks always run - each only does meaningful work when its id is set
   const dmView = useDmConversationView({
     dmId: selected?.kind === 'dm' ? selected.dmId : null,
     dmName: selected?.kind === 'dm' ? selected.dmName : undefined,
     onToggleStarred: selected?.kind === 'dm' ? handleToggleStarredOnDesk : undefined,
     showUnreads: showPeopleUnreads,
+    onStartTopicFromDm: handleStartTopicFromDm,
   })
   const topicView = useTopicView({
     topicId: selected?.kind === 'topic' ? selected.topicId : null,
     topicTitle: selected?.kind === 'topic' ? selected.topicTitle : undefined,
-    topicResolved: selected?.kind === 'topic' ? selected.topicResolved : false,
     onToggleStarred: selected?.kind === 'topic' ? handleToggleStarredOnDesk : undefined,
     showUnreads: showTopicUnreads,
   })
@@ -179,7 +212,7 @@ export function DeskPage() {
                           key={item.id}
                           name={item.title}
                           type="topic"
-                          topicStatus={item.topicStatus}
+                          topicStatus={isTopicResolved(item.topicId) ? 'resolved' : 'unresolved'}
                           isUnread
                           isUrgent
                           isSelected={
@@ -221,7 +254,7 @@ export function DeskPage() {
                       key={item.id}
                       name={item.title}
                       type="topic"
-                      topicStatus={item.topicStatus}
+                      topicStatus={isTopicResolved(item.topicId) ? 'resolved' : 'unresolved'}
                       isUnread={(showTopicUnreads && topicHasUnread(item.topicId)) || item.isUnread}
                       isSelected={
                         selectionAnchor === 'openWork' &&
@@ -229,6 +262,7 @@ export function DeskPage() {
                         selected.topicId === item.topicId
                       }
                       onClick={() => selectTopic(item.topicId, 'openWork')}
+                      onRemove={() => dismissOpenWork(item.id)}
                     />
                   ))}
                 </div>
@@ -282,7 +316,7 @@ export function DeskPage() {
                           key={entry.id}
                           name={entry.title}
                           type="topic"
-                          topicStatus={entry.topicStatus}
+                          topicStatus={isTopicResolved(entry.topicId) ? 'resolved' : 'unresolved'}
                           isUnread={(showTopicUnreads && topicHasUnread(entry.topicId)) || entry.isUnread}
                           isSelected={
                             selectionAnchor === 'starred' &&

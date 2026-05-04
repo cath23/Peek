@@ -84,3 +84,48 @@ export function extractResolution(editor: { state: { doc: { forEach: (cb: (node:
 
   return { hasResolution, resolutionMessage }
 }
+
+/**
+ * Fallback for the edit-message flow: if the user typed "-> something" but the
+ * Tiptap InputRule never converted it to a resolutionBlock (e.g. they typed
+ * mid-line, or pasted, or pressed Enter before the trigger fired), find that
+ * pattern in the serialized text and extract the message + body without it.
+ *
+ * Matches a line that either starts with "-> " / "→ " or has " -> " / " → "
+ * after some leading text - the part after the arrow becomes the resolution.
+ */
+export function extractResolutionFromText(body: string): {
+  body: string
+  resolutionMessage: string
+} | null {
+  const lines = body.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    // Start-of-line: "-> X" or "→ X"
+    const startMatch = line.match(/^(?:->|→)\s+(.+)$/)
+    if (startMatch) {
+      const message = startMatch[1].trim()
+      if (EMPTY_SENTINELS.has(message.toLowerCase())) {
+        const remaining = [...lines.slice(0, i), ...lines.slice(i + 1)].join('\n').trim()
+        return { body: remaining, resolutionMessage: '' }
+      }
+      const remaining = [...lines.slice(0, i), ...lines.slice(i + 1)].join('\n').trim()
+      return { body: remaining, resolutionMessage: message }
+    }
+    // Mid-line: "<text> -> X" or "<text> → X"
+    const midMatch = line.match(/^(.*?)\s(?:->|→)\s+(.+)$/)
+    if (midMatch) {
+      const before = midMatch[1].trim()
+      const message = midMatch[2].trim()
+      if (EMPTY_SENTINELS.has(message.toLowerCase())) {
+        const newLines = [...lines]
+        if (before) newLines[i] = before; else newLines.splice(i, 1)
+        return { body: newLines.join('\n').trim(), resolutionMessage: '' }
+      }
+      const newLines = [...lines]
+      if (before) newLines[i] = before; else newLines.splice(i, 1)
+      return { body: newLines.join('\n').trim(), resolutionMessage: message }
+    }
+  }
+  return null
+}

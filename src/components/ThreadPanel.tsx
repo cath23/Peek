@@ -1,11 +1,12 @@
 import { useRef, useEffect } from 'react'
-import { IconX } from '@tabler/icons-react'
+import { Link } from 'react-router-dom'
+import { IconX, IconExternalLink, IconCircleDashed, IconCircleCheck } from '@tabler/icons-react'
 import { Avatar } from './ui/Avatar'
 import { IconButton } from './ui/IconButton'
 import { ThreadReplyCard } from './ThreadReplyCard'
 import { ComposeBox, type SendPayload } from './ui/ComposeBox'
 import { DateDivider } from './ui/DateDivider'
-import type { ConversationData, HighlightType } from '@/data/topicData'
+import type { ConversationData, HighlightType, ReactionData } from '@/data/topicData'
 import type { ReplyData } from '@/data/replyData'
 import { HighlightPill } from './ui/HighlightPill'
 
@@ -57,10 +58,36 @@ interface ThreadPanelProps {
   huddleMembers?: string[]
   /** DM thread participants - shows You + the other person in the header pill */
   dmMembers?: string[]
+  /** Per-reply overrides keyed by reply id. Used to surface persisted body / highlight / reactions. */
+  replyBodyOverrides?: Record<string, string>
+  replyHighlightOverrides?: Record<string, HighlightType | undefined>
+  replyReactionOverrides?: Record<string, ReactionData[]>
+  /** Reactions on the initial (pinned) message — needed when the panel renders the initial as a
+   *  ThreadReplyCard (huddle case) so reactions added on this side persist & mirror to the DM side. */
+  initialReactions?: ReactionData[]
+  onInitialReactionsChange?: (reactions: ReactionData[]) => void
+  /** Highlight on the initial message — same purpose as reactions: mirror across DM and huddle. */
+  initialHighlightType?: HighlightType
+  onInitialHighlightChange?: (highlightType: HighlightType | undefined) => void
+  /**
+   * When set, an inline divider is rendered between the static `replies` (pre-promotion)
+   * and the runtime `sentReplies` (post-promotion). Used to mark the moment a DM
+   * conversation was promoted to a topic — visible from both DM and huddle entry points.
+   * If `onTopicClick` is provided, it overrides the Link's default navigation (used when
+   * the topic is already the current page and we just need to switch tabs / close the panel).
+   * `promotedAtMs` is the numeric promotion time used to partition runtime sentReplies
+   * chronologically: replies with createdAtMs < promotedAtMs render above the divider.
+   */
+  promotionDivider?: { topicId: string; topicTitle: string; topicResolved?: boolean; dateLabel: string; promotedAtMs?: number; onTopicClick?: () => void }
+  /** When set, renders a header button that jumps to the matching DM thread. Used from the huddle side only. */
+  onOpenInDm?: () => void
   onClose: () => void
   onSendReply: (payload: SendPayload) => void
   onDeleteReply?: (id: string) => void
   onInitialBodyChange?: (newBody: string) => void
+  onReplyBodyChange?: (replyId: string, body: string) => void
+  onReplyHighlightChange?: (replyId: string, type: HighlightType | undefined) => void
+  onReplyReactionsChange?: (replyId: string, reactions: ReactionData[]) => void
 }
 
 export function ThreadPanel({
@@ -71,14 +98,38 @@ export function ThreadPanel({
   huddleMemberCount,
   huddleMembers = [],
   dmMembers = [],
+  replyBodyOverrides = {},
+  replyHighlightOverrides = {},
+  replyReactionOverrides = {},
+  promotionDivider,
+  initialReactions,
+  onInitialReactionsChange,
+  initialHighlightType,
+  onInitialHighlightChange,
+  onOpenInDm,
   onClose,
   onSendReply,
   onDeleteReply,
   onInitialBodyChange,
+  onReplyBodyChange,
+  onReplyHighlightChange,
+  onReplyReactionsChange,
 }: ThreadPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const allReplies = [...replies, ...sentReplies]
+
+  /** Chronological partition around the promotion event, when a divider is rendered.
+   *  Static `replies` lack a numeric timestamp and represent pre-existing data, so they
+   *  always go above. Runtime `sentReplies` are split by `createdAtMs` vs `promotedAtMs`. */
+  const promoteAt = promotionDivider?.promotedAtMs
+  const preDividerSent = promotionDivider
+    ? sentReplies.filter((r) => promoteAt == null || (r.createdAtMs ?? 0) < promoteAt)
+    : []
+  const postDividerSent = promotionDivider
+    ? sentReplies.filter((r) => promoteAt != null && (r.createdAtMs ?? 0) >= promoteAt)
+    : []
+  const aboveReplies = promotionDivider ? [...replies, ...preDividerSent] : allReplies
 
   // Scroll to bottom when new replies are added
   useEffect(() => {
@@ -126,6 +177,11 @@ export function ThreadPanel({
               </div>
             )
           })()}
+          {onOpenInDm && (
+            <IconButton tooltip="Open original" aria-label="Open original" onClick={onOpenInDm}>
+              <IconExternalLink size={16} stroke={1.5} />
+            </IconButton>
+          )}
           <IconButton tooltip="Close" aria-label="Close thread" onClick={onClose}>
             <IconX size={16} stroke={1.5} />
           </IconButton>
@@ -142,7 +198,11 @@ export function ThreadPanel({
               authorName={conversation.authorName}
               timestamp={conversation.timestamp}
               body={conversation.body}
+              reactions={initialReactions}
+              highlightType={initialHighlightType}
               onBodyChange={onInitialBodyChange}
+              onReactionsChange={onInitialReactionsChange}
+              onHighlightChange={onInitialHighlightChange}
             />
           ) : (
             <PinnedMessage
@@ -157,18 +217,80 @@ export function ThreadPanel({
         {/* Replies divider */}
         <DateDivider label="Replies" className="px-4 py-2" />
 
-        {/* Reply list - chronological top to bottom */}
+        {/* Reply list - chronological top to bottom. When the conversation was promoted to a
+            topic, a system-event divider is inserted between the pre-promotion replies (static)
+            and the post-promotion replies (sentReplies). */}
         <div className="flex flex-col px-4 pb-4 gap-2">
-          {allReplies.map((reply) => (
+          {aboveReplies.map((reply) => (
             <ThreadReplyCard
               key={reply.id}
               authorName={reply.authorName}
               timestamp={reply.timestamp}
-              body={reply.body}
-              highlightType={reply.highlightType}
+              body={replyBodyOverrides[reply.id] ?? reply.body}
+              highlightType={
+                reply.id in replyHighlightOverrides ? replyHighlightOverrides[reply.id] : reply.highlightType
+              }
+              reactions={replyReactionOverrides[reply.id]}
               isNew={reply.isNew}
               isUrgent={reply.isUrgent}
               onDelete={onDeleteReply ? () => onDeleteReply(reply.id) : undefined}
+              onBodyChange={onReplyBodyChange ? (b) => onReplyBodyChange(reply.id, b) : undefined}
+              onHighlightChange={onReplyHighlightChange ? (h) => onReplyHighlightChange(reply.id, h) : undefined}
+              onReactionsChange={onReplyReactionsChange ? (r) => onReplyReactionsChange(reply.id, r) : undefined}
+            />
+          ))}
+          {promotionDivider && (
+            <DateDivider
+              className="px-0 py-1"
+              label={
+                <span className="inline-flex items-center gap-1.5 text-text-secondary">
+                  {promotionDivider.topicResolved ? (
+                    <IconCircleCheck size={14} stroke={1.5} className="text-success-default" />
+                  ) : (
+                    <IconCircleDashed size={14} stroke={1.5} />
+                  )}
+                  <span>
+                    Promoted to{' '}
+                    <Link
+                      to={`/topics/${promotionDivider.topicId}`}
+                      data-interactive
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        // When the parent provides an override (e.g. we're already on the
+                        // topic page and just need to switch tabs + close the thread),
+                        // suppress the no-op navigation and run the callback instead.
+                        if (promotionDivider.onTopicClick) {
+                          e.preventDefault()
+                          promotionDivider.onTopicClick()
+                        }
+                      }}
+                      className="text-text-primary hover:underline"
+                    >
+                      {promotionDivider.topicTitle}
+                    </Link>
+                    {' · '}
+                    {promotionDivider.dateLabel}
+                  </span>
+                </span>
+              }
+            />
+          )}
+          {promotionDivider && postDividerSent.map((reply) => (
+            <ThreadReplyCard
+              key={reply.id}
+              authorName={reply.authorName}
+              timestamp={reply.timestamp}
+              body={replyBodyOverrides[reply.id] ?? reply.body}
+              highlightType={
+                reply.id in replyHighlightOverrides ? replyHighlightOverrides[reply.id] : reply.highlightType
+              }
+              reactions={replyReactionOverrides[reply.id]}
+              isNew={reply.isNew}
+              isUrgent={reply.isUrgent}
+              onDelete={onDeleteReply ? () => onDeleteReply(reply.id) : undefined}
+              onBodyChange={onReplyBodyChange ? (b) => onReplyBodyChange(reply.id, b) : undefined}
+              onHighlightChange={onReplyHighlightChange ? (h) => onReplyHighlightChange(reply.id, h) : undefined}
+              onReactionsChange={onReplyReactionsChange ? (r) => onReplyReactionsChange(reply.id, r) : undefined}
             />
           ))}
         </div>

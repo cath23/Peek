@@ -8,6 +8,12 @@ export interface ReplyData {
   isNew?: boolean
   isUrgent?: boolean
   highlightType?: HighlightType
+  /**
+   * Numeric creation time (ms since epoch). Used to chronologically partition replies
+   * around a topic-promotion divider. Static mock replies omit this (treated as
+   * pre-promotion). Runtime-sent replies set it at create time.
+   */
+  createdAtMs?: number
 }
 
 /**

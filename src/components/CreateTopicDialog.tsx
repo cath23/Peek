@@ -1,27 +1,37 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { IconX, IconSearch } from '@tabler/icons-react'
+import { IconX, IconLock } from '@tabler/icons-react'
 import { IconButton } from './ui/IconButton'
 import { Button } from './ui/Button'
+import { PersonChipInput } from './ui/PersonChipInput'
+import type { Person } from '@/data/peopleData'
+
+export interface StartTopicResult {
+  title: string
+  invitees: Person[]
+}
 
 interface CreateTopicDialogProps {
   defaultTitle?: string
-  defaultDescription?: string
-  /** Label for the confirm button. Defaults to "Create topic". */
+  defaultInvitees?: Person[]
+  /** When set, the dialog renders the DM-to-huddle privacy banner. */
+  dmContext?: { participants: Person[] }
+  /** Label for the confirm button. Defaults to "Start topic". */
   confirmLabel?: string
-  onConfirm: (data: { title: string; description: string }) => void
+  onConfirm: (data: StartTopicResult) => void
   onCancel: () => void
 }
 
 export function CreateTopicDialog({
   defaultTitle = '',
-  defaultDescription = '',
-  confirmLabel = 'Create topic',
+  defaultInvitees = [],
+  dmContext,
+  confirmLabel = 'Start topic',
   onConfirm,
   onCancel,
 }: CreateTopicDialogProps) {
   const [title, setTitle] = useState(defaultTitle)
-  const [description, setDescription] = useState(defaultDescription)
+  const [invitees, setInvitees] = useState<Person[]>(defaultInvitees)
 
   const canConfirm = title.trim().length > 0
 
@@ -36,7 +46,7 @@ export function CreateTopicDialog({
 
           {/* Header */}
           <div className="h-12 flex items-center justify-between pl-5 pr-4 border-b border-border-subtle shrink-0">
-            <span className="text-h4 text-text-primary">Create topic</span>
+            <span className="text-h4 text-text-primary">Start topic</span>
             <IconButton tooltip="Close" aria-label="Close" onClick={onCancel}>
               <IconX size={16} stroke={1.5} />
             </IconButton>
@@ -61,37 +71,27 @@ export function CreateTopicDialog({
               />
             </div>
 
-            {/* Description */}
+            {/* Invite people */}
             <div className="flex flex-col gap-2">
               <label className="text-input-label text-text-primary">
-                Description (optional)
+                Invite people
               </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Add more context..."
-                className="bg-bg-inset border border-border-default focus:border-border-strong rounded-lg px-3 py-2 text-body-2 text-text-primary placeholder:text-text-muted resize-none outline-none h-[88px] leading-[1.4] transition-colors"
+              <PersonChipInput
+                value={invitees}
+                onChange={setInvitees}
+                placeholder="Search people..."
               />
             </div>
 
-            {/* Invite people or teams */}
-            <div className="flex flex-col gap-2">
-              <label className="text-input-label text-text-primary">
-                Invite people or teams
-              </label>
-              <div className="relative">
-                <IconSearch
-                  size={16}
-                  stroke={1.5}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
-                />
-                <input
-                  type="text"
-                  placeholder="Search people or teams..."
-                  className="w-full bg-bg-inset border border-border-default focus:border-border-strong rounded-lg pl-9 pr-3 py-2 text-body-2 text-text-primary placeholder:text-text-muted outline-none transition-colors"
-                />
+            {/* DM-to-huddle privacy banner */}
+            {dmContext && (
+              <div className="flex items-start gap-2 border border-warning-default rounded-lg px-3 py-2.5">
+                <IconLock size={16} stroke={1.5} className="text-text-primary shrink-0 mt-0.5" />
+                <p className="text-body-2 text-text-primary leading-[1.4]">
+                  This DM becomes a private huddle inside the new topic. Only you and the other DM participants can see it — the topic itself is public.
+                </p>
               </div>
-            </div>
+            )}
 
           </div>
 
@@ -101,7 +101,7 @@ export function CreateTopicDialog({
             <Button
               variant="primary"
               disabled={!canConfirm}
-              onClick={() => canConfirm && onConfirm({ title, description })}
+              onClick={() => canConfirm && onConfirm({ title, invitees })}
             >
               {confirmLabel}
             </Button>

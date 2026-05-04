@@ -1,5 +1,6 @@
 import { TopicState } from './TopicState'
 import { cn } from '@/lib/utils'
+import { useTopicMutations } from '@/lib/topicMutations'
 import { type Topic } from '@/data/topicData'
 
 interface TopicMenuProps {
@@ -10,6 +11,7 @@ interface TopicMenuProps {
 }
 
 export function TopicMenu({ topics, highlight, onSelect, onHighlightChange }: TopicMenuProps) {
+  const { isTopicResolved } = useTopicMutations()
   if (topics.length === 0) return null
 
   return (
@@ -36,7 +38,7 @@ export function TopicMenu({ topics, highlight, onSelect, onHighlightChange }: To
           >
             <TopicState
               type="topic"
-              status={topic.isResolved ? 'resolved' : 'unresolved'}
+              status={isTopicResolved(topic.id) ? 'resolved' : 'unresolved'}
             />
 
             <div className="flex-1 min-w-0 text-[14px] font-normal leading-[1.4] text-text-primary truncate">

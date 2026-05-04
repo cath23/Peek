@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { IconDotsVertical, IconAlertSquareRounded } from '@tabler/icons-react'
+import { IconDotsVertical, IconAlertSquareRounded, IconX } from '@tabler/icons-react'
 import { TopicState, type TopicStateType, type TopicStateStatus } from './TopicState'
 import { IconButton } from './IconButton'
 import { cn } from '@/lib/utils'
@@ -15,6 +15,10 @@ interface PersonRowProps {
   avatarSrc?: string
   memberCount?: number
   onClick?: () => void
+  /** When provided, replaces the hover "more options" 3-dot icon with an X
+   *  that calls this handler. Used by Open work rows so users can remove an
+   *  item from the list. */
+  onRemove?: () => void
   className?: string
 }
 
@@ -28,6 +32,7 @@ export function PersonRow({
   avatarSrc,
   memberCount,
   onClick,
+  onRemove,
   className,
 }: PersonRowProps) {
   const [isHovered, setIsHovered] = useState(false)
@@ -65,14 +70,25 @@ export function PersonRow({
           can use the full row width when idle. Slight layout shift on hover is intentional. */}
       {isHovered ? (
         <div className="w-6 h-6 flex items-center justify-center shrink-0">
-          <IconButton
-            tooltip="More options"
-            aria-label="More options"
-            onClick={(e) => e.stopPropagation()}
-            className="-m-1"
-          >
-            <IconDotsVertical size={16} stroke={1.5} />
-          </IconButton>
+          {onRemove ? (
+            <IconButton
+              tooltip="Remove from list"
+              aria-label="Remove from list"
+              onClick={(e) => { e.stopPropagation(); onRemove() }}
+              className="-m-1"
+            >
+              <IconX size={16} stroke={1.5} />
+            </IconButton>
+          ) : (
+            <IconButton
+              tooltip="More options"
+              aria-label="More options"
+              onClick={(e) => e.stopPropagation()}
+              className="-m-1"
+            >
+              <IconDotsVertical size={16} stroke={1.5} />
+            </IconButton>
+          )}
         </div>
       ) : isUrgent && isUnread ? (
         <div className="w-6 h-6 flex items-center justify-center shrink-0">
