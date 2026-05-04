@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { PeekMention, UrgentMention, TopicMention, FileMention, isSuggestionActive } from '@/extensions/mention'
-import { ResolutionBlock } from '@/extensions/resolution'
+import { ResolutionBlock, extractResolution, extractResolutionFromText } from '@/extensions/resolution'
 import { HighlightTag, extractHighlightType } from '@/extensions/highlight'
 import {
   IconMoodPlus,
@@ -37,28 +37,9 @@ import { cn } from '@/lib/utils'
 import { HighlightPill, HighlightSwatch } from './ui/HighlightPill'
 import { HIGHLIGHT_META, type HighlightType } from '@/data/topicData'
 
-// ── Inline rendering (shared with ConversationCard) ──
+// ── Inline rendering (shared with ConversationCard via lib/textParsing) ──
 
-const _escapedNames = PEOPLE
-  .map((p) => p.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-  .sort((a, b) => b.length - a.length)
-  .join('|')
-const _escapedBracketTitles = [
-  ...TOPICS.map((t) => t.title),
-  ...APP_FILES.map((f) => f.title),
-  ...DOCUMENT_FILES.map((f) => f.title),
-]
-  .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-  .sort((a, b) => b.length - a.length)
-  .join('|')
-// Captures: @FullName / !@FullName (PEOPLE), @lowercase-handle (teams/groups
-// like @backend-team, @devops), and [Topic Title] / [File Title] brackets.
-// The lookahead (?![a-zA-Z/]) prevents partial matches inside camelCase or
-// package paths (e.g. @testing-library/react is left as plain text).
-const MENTION_RE = new RegExp(
-  `((?:!@|@)(?:${_escapedNames})|@[a-z][a-z0-9-]+(?![a-zA-Z/])|\\[(?:${_escapedBracketTitles})\\])`,
-  'g'
-)
+import { MENTION_RE, parseInlineContent, serializeInline, textToTiptapContent, serializeTiptapToText, parseBodySegments } from '@/lib/textParsing'
 
 function renderWithMentions(text: string, isTopicResolved: (id: string) => boolean): React.ReactNode {
   const parts = text.split(MENTION_RE)
@@ -120,51 +101,6 @@ function renderWithMentions(text: string, isTopicResolved: (id: string) => boole
   )
 }
 
-type BodySegment =
-  | { type: 'text'; lines: string[] }
-  | { type: 'bullet'; items: string[] }
-  | { type: 'numbered'; items: string[] }
-
-function parseBodySegments(body: string): BodySegment[] {
-  const lines = body.split('\n')
-  const segments: BodySegment[] = []
-  let i = 0
-  while (i < lines.length) {
-    const line = lines[i]
-    if (/^[-•]\s/.test(line)) {
-      const items: string[] = []
-      while (i < lines.length && /^[-•]\s/.test(lines[i])) {
-        items.push(lines[i].replace(/^[-•]\s/, ''))
-        i++
-      }
-      segments.push({ type: 'bullet', items })
-    } else if (/^\d+\.\s/.test(line)) {
-      const items: string[] = []
-      while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
-        items.push(lines[i].replace(/^\d+\.\s/, ''))
-        i++
-      }
-      segments.push({ type: 'numbered', items })
-    } else {
-      const textLines: string[] = []
-      while (i < lines.length && !/^[-•]\s/.test(lines[i]) && !/^\d+\.\s/.test(lines[i])) {
-        textLines.push(lines[i])
-        i++
-      }
-      let chunk: string[] = []
-      for (const l of textLines) {
-        if (l === '') {
-          if (chunk.length > 0) { segments.push({ type: 'text', lines: chunk }); chunk = [] }
-        } else {
-          chunk.push(l)
-        }
-      }
-      if (chunk.length > 0) segments.push({ type: 'text', lines: chunk })
-    }
-  }
-  return segments
-}
-
 function MessageBody({ body, isTopicResolved }: { body: string; isTopicResolved: (id: string) => boolean }) {
   const segments = parseBodySegments(body)
   return (
@@ -207,104 +143,6 @@ function MessageBody({ body, isTopicResolved }: { body: string; isTopicResolved:
       })}
     </div>
   )
-}
-
-// ── Edit-mode helpers ──
-
-function parseInlineContent(line: string): Record<string, unknown>[] {
-  const parts = line.split(MENTION_RE)
-  const content: Record<string, unknown>[] = []
-  for (const part of parts) {
-    if (!part) continue
-    if (part.startsWith('!@') && part.length > 2) {
-      const name = part.slice(2)
-      const person = PEOPLE.find((p) => p.name === name)
-      content.push({ type: 'urgentMention', attrs: { id: person?.id ?? name, label: name } })
-    } else if (part.startsWith('@') && part.length > 1) {
-      const name = part.slice(1)
-      const person = PEOPLE.find((p) => p.name === name)
-      content.push({ type: 'mention', attrs: { id: person?.id ?? name, label: name } })
-    } else if (part.startsWith('[') && part.endsWith(']') && part.length > 2) {
-      const title = part.slice(1, -1)
-      const topic = TOPICS.find((t) => t.title === title)
-      if (topic) {
-        content.push({ type: 'topicMention', attrs: { id: topic.id, label: title, isResolved: topic.isResolved } })
-      } else {
-        const appFile = APP_FILES.find((f) => f.title === title)
-        const docFile = DOCUMENT_FILES.find((f) => f.title === title)
-        const file = appFile ?? docFile
-        content.push({ type: 'fileMention', attrs: { id: file?.id ?? title, label: title, app: appFile?.app ?? docFile?.docType ?? '', subtitle: file?.subtitle ?? '' } })
-      }
-    } else {
-      content.push({ type: 'text', text: part })
-    }
-  }
-  return content
-}
-
-function textToTiptapContent(text: string) {
-  const lines = text.split('\n')
-  const docContent: Record<string, unknown>[] = []
-  let i = 0
-  while (i < lines.length) {
-    const line = lines[i]
-    if (/^[-•]\s/.test(line)) {
-      const items: Record<string, unknown>[] = []
-      while (i < lines.length && /^[-•]\s/.test(lines[i])) {
-        items.push({ type: 'listItem', content: [{ type: 'paragraph', content: parseInlineContent(lines[i].replace(/^[-•]\s/, '')) }] })
-        i++
-      }
-      docContent.push({ type: 'bulletList', content: items })
-      continue
-    }
-    if (/^\d+\.\s/.test(line)) {
-      const items: Record<string, unknown>[] = []
-      while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
-        items.push({ type: 'listItem', content: [{ type: 'paragraph', content: parseInlineContent(lines[i].replace(/^\d+\.\s/, '')) }] })
-        i++
-      }
-      docContent.push({ type: 'orderedList', content: items })
-      continue
-    }
-    if (line.length === 0) {
-      docContent.push({ type: 'paragraph', content: [] })
-    } else {
-      docContent.push({ type: 'paragraph', content: parseInlineContent(line) })
-    }
-    i++
-  }
-  return { type: 'doc' as const, content: docContent }
-}
-
-function serializeInline(node: { forEach: (cb: (child: { type: { name: string }; attrs: Record<string, string>; text?: string }) => void) => void }): string {
-  let text = ''
-  node.forEach((child) => {
-    if (child.type.name === 'highlightTag') { /* skip */ }
-    else if (child.type.name === 'hardBreak') text += '\n'
-    else if (child.type.name === 'mention') text += `@${child.attrs.label}`
-    else if (child.type.name === 'urgentMention') text += `!@${child.attrs.label}`
-    else if (child.type.name === 'topicMention') text += `[${child.attrs.label}] `
-    else if (child.type.name === 'fileMention') text += `[${child.attrs.label}] `
-    else text += child.text ?? ''
-  })
-  return text
-}
-
-function serializeTiptapToText(editor: ReturnType<typeof useEditor>): string {
-  if (!editor) return ''
-  const lines: string[] = []
-  editor.state.doc.forEach((node) => {
-    if (node.type.name === 'resolutionBlock') return
-    if (node.type.name === 'paragraph') {
-      lines.push(serializeInline(node))
-    } else if (node.type.name === 'bulletList') {
-      node.forEach((li) => { li.forEach((liChild) => { if (liChild.type.name === 'paragraph') lines.push(`- ${serializeInline(liChild)}`) }) })
-    } else if (node.type.name === 'orderedList') {
-      let idx = 1
-      node.forEach((li) => { li.forEach((liChild) => { if (liChild.type.name === 'paragraph') { lines.push(`${idx}. ${serializeInline(liChild)}`); idx++ } }) })
-    }
-  })
-  return lines.join('\n').trim()
 }
 
 // ── Reply More Menu ──
@@ -433,6 +271,16 @@ interface ThreadReplyCardProps {
   onDelete?: () => void
   onBodyChange?: (newBody: string) => void
   onReactionsChange?: (reactions: ReactionData[]) => void
+  /** True when this reply triggered the parent conv's resolution (compose `→ msg` in the
+   *  thread panel). When set, edit mode surfaces the resolution as a resolutionBlock so
+   *  the user can update or remove it inline. */
+  ownsResolution?: boolean
+  /** Current resolution message on the parent conv. Forwarded into the editor in edit mode. */
+  resolutionMsg?: string
+  /** Called on save when the editor's resolutionBlock changed:
+   *  - resolved=true with new `message` → parent stays/becomes resolved with that message
+   *  - resolved=false → parent reopens (user removed the resolution from the editor) */
+  onResolutionChange?: (resolved: boolean, message?: string) => void
   className?: string
 }
 
@@ -449,6 +297,9 @@ export function ThreadReplyCard({
   onDelete,
   onBodyChange,
   onReactionsChange,
+  ownsResolution = false,
+  resolutionMsg,
+  onResolutionChange,
   className,
 }: ThreadReplyCardProps) {
   const [isHovered, setIsHovered] = useState(false)
@@ -563,6 +414,16 @@ export function ThreadReplyCard({
           ]
         }
       }
+      // If this reply triggered the parent's resolution, append the resolution as a
+      // resolutionBlock so the user can edit or remove it inline. Removing the block
+      // on save reopens the parent (handled in handleEditSave below).
+      if (ownsResolution) {
+        const resolutionText = resolutionMsg ? `→ ${resolutionMsg}` : '→ '
+        content.content.push({
+          type: 'resolutionBlock',
+          content: [{ type: 'text', text: resolutionText }],
+        })
+      }
       editEditor.commands.setContent(content)
       setTimeout(() => editEditor.commands.focus('end'), 0)
     } else {
@@ -600,9 +461,30 @@ export function ThreadReplyCard({
   const handleEditSave = () => {
     if (!editEditor) return
     const trimmed = serializeTiptapToText(editEditor)
-    if (trimmed) {
-      setBodyState(trimmed)
-      onBodyChange?.(trimmed)
+    let resolution = extractResolution(editEditor)
+    let finalBody = trimmed
+
+    // Fallback for the mid-line "-> msg" pattern that the InputRule didn't catch.
+    if (!resolution.hasResolution) {
+      const fromText = extractResolutionFromText(trimmed)
+      if (fromText) {
+        finalBody = fromText.body
+        resolution = { hasResolution: true, resolutionMessage: fromText.resolutionMessage }
+      }
+    }
+
+    if (finalBody) {
+      setBodyState(finalBody)
+      onBodyChange?.(finalBody)
+    }
+    // Resolution changes only flow up when this reply owns the parent's resolution.
+    if (ownsResolution || resolution.hasResolution) {
+      if (resolution.hasResolution) {
+        onResolutionChange?.(true, resolution.resolutionMessage)
+      } else if (ownsResolution) {
+        // Was the resolution-owner, no resolution block left → user removed it, reopen.
+        onResolutionChange?.(false, undefined)
+      }
     }
     // Preserve highlight type from edit
     const hl = extractHighlightType(editEditor)

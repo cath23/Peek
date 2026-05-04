@@ -42,179 +42,7 @@ import { useTopicMutations } from '@/lib/topicMutations'
 import { HighlightPill } from './ui/HighlightPill'
 import { cn } from '@/lib/utils'
 
-// Build an exact-name regex from PEOPLE so we never over-match into surrounding text.
-// Longest names first to avoid partial shadowing (e.g. "Bob" before "Bob Smith").
-const _escapedNames = PEOPLE
-  .map((p) => p.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-  .sort((a, b) => b.length - a.length)
-  .join('|')
-const _escapedBracketTitles = [
-  ...TOPICS.map((t) => t.title),
-  ...APP_FILES.map((f) => f.title),
-  ...DOCUMENT_FILES.map((f) => f.title),
-]
-  .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-  .sort((a, b) => b.length - a.length)
-  .join('|')
-// Captures: @FullName / !@FullName (PEOPLE), @lowercase-handle (teams/groups
-// like @backend-team, @devops), and [Topic Title] / [File Title] brackets.
-// The lookahead (?![a-zA-Z/]) prevents partial matches inside camelCase or
-// package paths (e.g. @testing-library/react is left as plain text).
-const MENTION_RE = new RegExp(
-  `((?:!@|@)(?:${_escapedNames})|@[a-z][a-z0-9-]+(?![a-zA-Z/])|\\[(?:${_escapedBracketTitles})\\])`,
-  'g'
-)
-
-/** Parse inline content (mentions + topic refs + text) into Tiptap JSON nodes */
-function parseInlineContent(line: string): Record<string, unknown>[] {
-  const parts = line.split(MENTION_RE)
-  const content: Record<string, unknown>[] = []
-  for (const part of parts) {
-    if (!part) continue
-    if (part.startsWith('!@') && part.length > 2) {
-      const name = part.slice(2)
-      const person = PEOPLE.find((p) => p.name === name)
-      content.push({ type: 'urgentMention', attrs: { id: person?.id ?? name, label: name } })
-    } else if (part.startsWith('@') && part.length > 1) {
-      const name = part.slice(1)
-      const person = PEOPLE.find((p) => p.name === name)
-      content.push({ type: 'mention', attrs: { id: person?.id ?? name, label: name } })
-    } else if (part.startsWith('[') && part.endsWith(']') && part.length > 2) {
-      const title = part.slice(1, -1)
-      const topic = TOPICS.find((t) => t.title === title)
-      if (topic) {
-        content.push({
-          type: 'topicMention',
-          attrs: {
-            id: topic.id,
-            label: title,
-            isResolved: topic.isResolved,
-          },
-        })
-      } else {
-        const appFile = APP_FILES.find((f) => f.title === title)
-        const docFile = DOCUMENT_FILES.find((f) => f.title === title)
-        const file = appFile ?? docFile
-        content.push({
-          type: 'fileMention',
-          attrs: {
-            id: file?.id ?? title,
-            label: title,
-            app: appFile?.app ?? docFile?.docType ?? '',
-            subtitle: file?.subtitle ?? '',
-          },
-        })
-      }
-    } else {
-      content.push({ type: 'text', text: part })
-    }
-  }
-  return content
-}
-
-/** Converts plain-text body to Tiptap JSON content for pre-populating the edit editor. */
-function textToTiptapContent(text: string) {
-  const lines = text.split('\n')
-  const docContent: Record<string, unknown>[] = []
-  let i = 0
-
-  while (i < lines.length) {
-    const line = lines[i]
-
-    // Bullet list
-    if (/^[-•]\s/.test(line)) {
-      const items: Record<string, unknown>[] = []
-      while (i < lines.length && /^[-•]\s/.test(lines[i])) {
-        const itemText = lines[i].replace(/^[-•]\s/, '')
-        items.push({
-          type: 'listItem',
-          content: [{ type: 'paragraph', content: parseInlineContent(itemText) }],
-        })
-        i++
-      }
-      docContent.push({ type: 'bulletList', content: items })
-      continue
-    }
-
-    // Numbered list
-    if (/^\d+\.\s/.test(line)) {
-      const items: Record<string, unknown>[] = []
-      while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
-        const itemText = lines[i].replace(/^\d+\.\s/, '')
-        items.push({
-          type: 'listItem',
-          content: [{ type: 'paragraph', content: parseInlineContent(itemText) }],
-        })
-        i++
-      }
-      docContent.push({ type: 'orderedList', content: items })
-      continue
-    }
-
-    // Regular paragraph
-    if (line.length === 0) {
-      docContent.push({ type: 'paragraph', content: [] })
-    } else {
-      docContent.push({ type: 'paragraph', content: parseInlineContent(line) })
-    }
-    i++
-  }
-
-  return { type: 'doc' as const, content: docContent }
-}
-
-function serializeInline(node: { forEach: (cb: (child: { type: { name: string }; attrs: Record<string, string>; text?: string }) => void) => void }): string {
-  let text = ''
-  node.forEach((child) => {
-    if (child.type.name === 'highlightTag') { /* skip */ }
-    else if (child.type.name === 'hardBreak') {
-      text += '\n'
-    } else if (child.type.name === 'mention') {
-      text += `@${child.attrs.label}`
-    } else if (child.type.name === 'urgentMention') {
-      text += `!@${child.attrs.label}`
-    } else if (child.type.name === 'topicMention') {
-      text += `[${child.attrs.label}] `
-    } else if (child.type.name === 'fileMention') {
-      text += `[${child.attrs.label}] `
-    } else {
-      text += child.text ?? ''
-    }
-  })
-  return text
-}
-
-/** Serialises a Tiptap editor to plain text. */
-function serializeTiptapToText(editor: ReturnType<typeof useEditor>): string {
-  if (!editor) return ''
-  const lines: string[] = []
-  editor.state.doc.forEach((node) => {
-    // Skip resolution blocks - consumed by the resolve action
-    if (node.type.name === 'resolutionBlock') return
-    if (node.type.name === 'paragraph') {
-      lines.push(serializeInline(node))
-    } else if (node.type.name === 'bulletList') {
-      node.forEach((li) => {
-        li.forEach((liChild) => {
-          if (liChild.type.name === 'paragraph') {
-            lines.push(`- ${serializeInline(liChild)}`)
-          }
-        })
-      })
-    } else if (node.type.name === 'orderedList') {
-      let idx = 1
-      node.forEach((li) => {
-        li.forEach((liChild) => {
-          if (liChild.type.name === 'paragraph') {
-            lines.push(`${idx}. ${serializeInline(liChild)}`)
-            idx++
-          }
-        })
-      })
-    }
-  })
-  return lines.join('\n').trim()
-}
+import { MENTION_RE, parseInlineContent, serializeInline, textToTiptapContent, serializeTiptapToText, parseBodySegments } from '@/lib/textParsing'
 
 function renderWithMentions(text: string, isTopicResolved: (id: string) => boolean): React.ReactNode {
   const parts = text.split(MENTION_RE)
@@ -275,52 +103,6 @@ function renderWithMentions(text: string, isTopicResolved: (id: string) => boole
       })}
     </>
   )
-}
-
-type BodySegment =
-  | { type: 'text'; lines: string[] }
-  | { type: 'bullet'; items: string[] }
-  | { type: 'numbered'; items: string[] }
-
-function parseBodySegments(body: string): BodySegment[] {
-  const lines = body.split('\n')
-  const segments: BodySegment[] = []
-  let i = 0
-  while (i < lines.length) {
-    const line = lines[i]
-    if (/^[-•]\s/.test(line)) {
-      const items: string[] = []
-      while (i < lines.length && /^[-•]\s/.test(lines[i])) {
-        items.push(lines[i].replace(/^[-•]\s/, ''))
-        i++
-      }
-      segments.push({ type: 'bullet', items })
-    } else if (/^\d+\.\s/.test(line)) {
-      const items: string[] = []
-      while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
-        items.push(lines[i].replace(/^\d+\.\s/, ''))
-        i++
-      }
-      segments.push({ type: 'numbered', items })
-    } else {
-      const textLines: string[] = []
-      while (i < lines.length && !/^[-•]\s/.test(lines[i]) && !/^\d+\.\s/.test(lines[i])) {
-        textLines.push(lines[i])
-        i++
-      }
-      // Split blank lines into separate text segments (paragraph breaks)
-      let chunk: string[] = []
-      for (const l of textLines) {
-        if (l === '') {
-          if (chunk.length > 0) { segments.push({ type: 'text', lines: chunk }); chunk = [] }
-        } else {
-          chunk.push(l)
-        }
-      }
-      if (chunk.length > 0) segments.push({ type: 'text', lines: chunk })
-    }
-  }
-  return segments
 }
 
 function MessageBody({ body, isTopicResolved }: { body: string; isTopicResolved: (id: string) => boolean }) {
@@ -570,6 +352,17 @@ export function ConversationCard({
           ]
         }
       }
+      // If the message is currently resolved, append a resolutionBlock so the
+      // resolution text is visible and editable inline. Removing the block on
+      // save reopens the conversation; clearing the text leaves it resolved
+      // with no message (matches the empty-sentinel send path).
+      if (resolved) {
+        const resolutionText = resolutionMsg ? `→ ${resolutionMsg}` : '→ '
+        content.content.push({
+          type: 'resolutionBlock',
+          content: [{ type: 'text', text: resolutionText }],
+        })
+      }
       editEditor.commands.setContent(content)
       // Focus and move cursor to end
       setTimeout(() => {
@@ -674,6 +467,7 @@ export function ConversationCard({
 
   const handleEditSave = () => {
     if (!editEditor) return
+    const wasResolved = resolved
     const trimmed = serializeTiptapToText(editEditor)
     let resolution = extractResolution(editEditor)
     let finalBody = trimmed
@@ -693,10 +487,19 @@ export function ConversationCard({
       onBodyChange?.(finalBody)
     }
     if (resolution.hasResolution) {
+      // Editor still has a resolution block → message stays / becomes resolved
+      // with the (possibly edited) message text.
       setResolved(true)
       setResolvedBy('You')
       setResolutionMsg(resolution.resolutionMessage)
       onResolvedChange?.(true, 'You', resolution.resolutionMessage)
+    } else if (wasResolved) {
+      // Was resolved before edit, no resolution block in editor anymore →
+      // the user deleted it intentionally to reopen the conversation.
+      setResolved(false)
+      setResolvedBy('')
+      setResolutionMsg('')
+      onResolvedChange?.(false, undefined, undefined)
     }
     // Preserve highlight type from edit
     const hl = extractHighlightType(editEditor)

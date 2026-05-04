@@ -34,7 +34,7 @@ interface ViewSlots {
 export function useDmConversationView({ dmId, dmName, onToggleStarred, showUnreads = false, onStartTopicFromDm }: UseDmConversationViewArgs): ViewSlots {
   const [sentMessages, setSentMessages] = useState<Record<number, ConversationData[]>>({})
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
-  const [resolvedOverrides, setResolvedOverrides] = useState<Record<string, { resolved: boolean; resolvedBy?: string; message?: string }>>({})
+  const [resolvedOverrides, setResolvedOverrides] = useState<Record<string, { resolved: boolean; resolvedBy?: string; message?: string; resolvedByReplyId?: string }>>({})
   const [threadConvId, setThreadConvId] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const { isDmStarred, toggleDm } = useStarred()
@@ -124,10 +124,12 @@ export function useDmConversationView({ dmId, dmName, onToggleStarred, showUnrea
 
   const handleSendReply = ({ text, resolution }: SendPayload) => {
     if (!threadConvId) return
+    let newReplyId: string | undefined
     if (text) {
       const now = Date.now()
+      newReplyId = `reply_${now}`
       const newReply: ReplyData = {
-        id: `reply_${now}`,
+        id: newReplyId,
         authorName: 'You',
         timestamp: new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         body: text,
@@ -139,7 +141,11 @@ export function useDmConversationView({ dmId, dmName, onToggleStarred, showUnrea
       }))
     }
     if (resolution) {
-      handleResolvedChange(threadConvId, true, 'You', resolution.message)
+      // Stamp resolvedByReplyId so editing this reply later can surface the resolution inline.
+      setResolvedOverrides((prev) => ({
+        ...prev,
+        [threadConvId]: { resolved: true, resolvedBy: 'You', message: resolution.message, resolvedByReplyId: newReplyId },
+      }))
     }
   }
 
@@ -326,6 +332,19 @@ export function useDmConversationView({ dmId, dmName, onToggleStarred, showUnrea
       onInitialHighlightChange={
         threadConvId
           ? (hl) => setHighlightOverrides((prev) => ({ ...prev, [threadConvId]: hl }))
+          : undefined
+      }
+      resolvedByReplyId={threadConvId ? resolvedOverrides[threadConvId]?.resolvedByReplyId : undefined}
+      resolutionMsg={threadConvId ? resolvedOverrides[threadConvId]?.message : undefined}
+      onResolutionChange={
+        threadConvId
+          ? (resolved, message) => setResolvedOverrides((prev) => {
+              const existing = prev[threadConvId]
+              if (resolved) {
+                return { ...prev, [threadConvId]: { resolved: true, resolvedBy: 'You', message, resolvedByReplyId: existing?.resolvedByReplyId } }
+              }
+              return { ...prev, [threadConvId]: { resolved: false } }
+            })
           : undefined
       }
       promotionDivider={

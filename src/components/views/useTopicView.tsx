@@ -182,10 +182,12 @@ export function useTopicView({
 
   const handleSendReply = ({ text, resolution, highlightType }: SendPayload) => {
     if (!threadConvId) return
+    let newReplyId: string | undefined
     if (text) {
       const now = Date.now()
+      newReplyId = `reply_${now}`
       const newReply: ReplyData = {
-        id: `reply_${now}`,
+        id: newReplyId,
         authorName: 'You',
         timestamp: new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         body: text,
@@ -194,7 +196,13 @@ export function useTopicView({
       }
       setSentReplies((prev) => ({ ...prev, [threadConvId]: [...(prev[threadConvId] ?? []), newReply] }))
     }
-    if (resolution) handleResolvedChange(threadConvId, true, 'You', resolution.message)
+    if (resolution) {
+      // Stamp resolvedByReplyId so editing this reply later can surface the resolution inline.
+      setResolvedOverrides((prev) => ({
+        ...prev,
+        [threadConvId]: { resolved: true, resolvedBy: 'You', message: resolution.message, resolvedByReplyId: newReplyId },
+      }))
+    }
   }
 
   const handleDeleteReply = (replyId: string) => {
@@ -614,6 +622,20 @@ export function useTopicView({
       onInitialHighlightChange={
         threadConvId
           ? (hl) => setHighlightOverrides((prev) => ({ ...prev, [threadConvId]: hl }))
+          : undefined
+      }
+      resolvedByReplyId={threadConvId ? resolvedOverrides[threadConvId]?.resolvedByReplyId : undefined}
+      resolutionMsg={threadConvId ? resolvedOverrides[threadConvId]?.message : undefined}
+      onResolutionChange={
+        threadConvId
+          ? (resolved, message) => setResolvedOverrides((prev) => {
+              const existing = prev[threadConvId]
+              if (resolved) {
+                return { ...prev, [threadConvId]: { resolved: true, resolvedBy: 'You', message, resolvedByReplyId: existing?.resolvedByReplyId } }
+              }
+              // Reopen — clear everything including the reply pointer.
+              return { ...prev, [threadConvId]: { resolved: false } }
+            })
           : undefined
       }
       promotionDivider={

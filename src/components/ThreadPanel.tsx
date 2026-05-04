@@ -9,6 +9,7 @@ import { DateDivider } from './ui/DateDivider'
 import type { ConversationData, HighlightType, ReactionData } from '@/data/topicData'
 import type { ReplyData } from '@/data/replyData'
 import { HighlightPill } from './ui/HighlightPill'
+import { partitionRepliesAroundPromotion } from '@/lib/threadPartition'
 
 // ── Pinned Initial Message (compact) ──
 
@@ -69,6 +70,14 @@ interface ThreadPanelProps {
   /** Highlight on the initial message — same purpose as reactions: mirror across DM and huddle. */
   initialHighlightType?: HighlightType
   onInitialHighlightChange?: (highlightType: HighlightType | undefined) => void
+  /** Id of the reply (if any) that triggered the parent's resolution. The matching ThreadReplyCard
+   *  surfaces the resolution inline in edit mode so the user can update or remove it from the reply. */
+  resolvedByReplyId?: string
+  /** Current resolution message on the parent conv. Forwarded to the resolution-owning reply card. */
+  resolutionMsg?: string
+  /** Called when the resolution-owning reply card edits the resolution. The parent updates the
+   *  parent conv's resolution override accordingly (or reopens it when removed). */
+  onResolutionChange?: (resolved: boolean, message?: string) => void
   /**
    * When set, an inline divider is rendered between the static `replies` (pre-promotion)
    * and the runtime `sentReplies` (post-promotion). Used to mark the moment a DM
@@ -106,6 +115,9 @@ export function ThreadPanel({
   onInitialReactionsChange,
   initialHighlightType,
   onInitialHighlightChange,
+  resolvedByReplyId,
+  resolutionMsg,
+  onResolutionChange,
   onOpenInDm,
   onClose,
   onSendReply,
@@ -119,17 +131,11 @@ export function ThreadPanel({
 
   const allReplies = [...replies, ...sentReplies]
 
-  /** Chronological partition around the promotion event, when a divider is rendered.
-   *  Static `replies` lack a numeric timestamp and represent pre-existing data, so they
-   *  always go above. Runtime `sentReplies` are split by `createdAtMs` vs `promotedAtMs`. */
-  const promoteAt = promotionDivider?.promotedAtMs
-  const preDividerSent = promotionDivider
-    ? sentReplies.filter((r) => promoteAt == null || (r.createdAtMs ?? 0) < promoteAt)
-    : []
-  const postDividerSent = promotionDivider
-    ? sentReplies.filter((r) => promoteAt != null && (r.createdAtMs ?? 0) >= promoteAt)
-    : []
-  const aboveReplies = promotionDivider ? [...replies, ...preDividerSent] : allReplies
+  // When a promotion divider is rendered, replies are split chronologically
+  // around the promotion event (see lib/threadPartition for the rule).
+  const { above: aboveReplies, below: postDividerSent } = promotionDivider
+    ? partitionRepliesAroundPromotion({ replies, sentReplies, promotedAtMs: promotionDivider.promotedAtMs })
+    : { above: allReplies, below: [] as typeof sentReplies }
 
   // Scroll to bottom when new replies are added
   useEffect(() => {
@@ -233,6 +239,9 @@ export function ThreadPanel({
               reactions={replyReactionOverrides[reply.id]}
               isNew={reply.isNew}
               isUrgent={reply.isUrgent}
+              ownsResolution={resolvedByReplyId === reply.id}
+              resolutionMsg={resolvedByReplyId === reply.id ? resolutionMsg : undefined}
+              onResolutionChange={resolvedByReplyId === reply.id ? onResolutionChange : undefined}
               onDelete={onDeleteReply ? () => onDeleteReply(reply.id) : undefined}
               onBodyChange={onReplyBodyChange ? (b) => onReplyBodyChange(reply.id, b) : undefined}
               onHighlightChange={onReplyHighlightChange ? (h) => onReplyHighlightChange(reply.id, h) : undefined}
@@ -287,6 +296,9 @@ export function ThreadPanel({
               reactions={replyReactionOverrides[reply.id]}
               isNew={reply.isNew}
               isUrgent={reply.isUrgent}
+              ownsResolution={resolvedByReplyId === reply.id}
+              resolutionMsg={resolvedByReplyId === reply.id ? resolutionMsg : undefined}
+              onResolutionChange={resolvedByReplyId === reply.id ? onResolutionChange : undefined}
               onDelete={onDeleteReply ? () => onDeleteReply(reply.id) : undefined}
               onBodyChange={onReplyBodyChange ? (b) => onReplyBodyChange(reply.id, b) : undefined}
               onHighlightChange={onReplyHighlightChange ? (h) => onReplyHighlightChange(reply.id, h) : undefined}

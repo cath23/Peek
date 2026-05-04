@@ -7,6 +7,10 @@ interface ResolvedOverride {
   resolved: boolean
   resolvedBy?: string
   message?: string
+  /** When the resolution was triggered by a reply (compose `→ msg` from the thread panel),
+   *  this holds that reply's id so we can surface and edit the resolution inline on that
+   *  specific reply card. Undefined when the resolution came from the conv-level menu. */
+  resolvedByReplyId?: string
 }
 
 /**

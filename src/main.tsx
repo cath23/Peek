@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import { Analytics } from '@vercel/analytics/react'
 import { ThemeProvider } from './lib/theme'
 import { DebugProvider } from './lib/debug'
 import { StarredProvider } from './lib/starred'
@@ -20,6 +21,7 @@ createRoot(document.getElementById('root')!).render(
               <LastSelectionProvider>
                 <ToastProvider>
                   <App />
+                  <Analytics />
                 </ToastProvider>
               </LastSelectionProvider>
             </TopicMutationsProvider>
