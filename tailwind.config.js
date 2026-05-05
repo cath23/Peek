@@ -48,6 +48,7 @@ export default {
         'bg-selected':  'var(--bg-selected)',
         'bg-active':    'var(--bg-active)',
         'bg-disabled':  'var(--bg-disabled)',
+        'bg-private':   'var(--bg-private)',
         // text
         'text-primary':   'var(--text-primary)',
         'text-secondary': 'var(--text-secondary)',
@@ -59,6 +60,7 @@ export default {
         'border-default': 'var(--border-default)',
         'border-strong':  'var(--border-strong)',
         'border-focus':   'var(--border-focus)',
+        'border-private': 'var(--border-private)',
         // accent (purple)
         'accent-primary': 'var(--accent-primary)',
         'accent-hover':   'var(--accent-hover)',

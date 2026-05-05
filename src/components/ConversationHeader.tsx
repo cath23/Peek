@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react'
-import { IconStar, IconStarFilled, IconDotsVertical } from '@tabler/icons-react'
+import { IconStar, IconStarFilled, IconDotsVertical, IconLockPlus, IconLock } from '@tabler/icons-react'
 import { TopicState } from './ui/TopicState'
 import { Avatar } from './ui/Avatar'
 import { IconButton } from './ui/IconButton'
@@ -10,6 +10,9 @@ interface ConversationHeaderProps {
   name?: string
   /** When true, shows topic-mode layout: TopicState icon, status counts, members, timeline button */
   topicMode?: boolean
+  /** V2 huddle main-view header: lock icon on the left, no open/resolved counts. Members pill still
+   *  shows when `members` is provided. Pairs with `name` carrying the comma-joined member names. */
+  huddleMode?: boolean
   isResolved?: boolean
   openCount?: number
   resolvedCount?: number
@@ -19,6 +22,8 @@ interface ConversationHeaderProps {
   members?: string[]
   isStarred?: boolean
   onToggleStarred?: () => void
+  /** When provided, renders a "Start a huddle" icon button next to the members pill. */
+  onStartHuddle?: () => void
   tabs?: ReactNode
   className?: string
 }
@@ -44,6 +49,7 @@ export function ConversationHeader({
   avatarSrc,
   name,
   topicMode = false,
+  huddleMode = false,
   isResolved = false,
   openCount = 0,
   resolvedCount = 0,
@@ -51,6 +57,7 @@ export function ConversationHeader({
   members = [],
   isStarred = false,
   onToggleStarred,
+  onStartHuddle,
   tabs,
   className,
 }: ConversationHeaderProps) {
@@ -60,7 +67,9 @@ export function ConversationHeader({
       <div className="h-12 flex items-center justify-between pl-5 pr-4 py-2">
         {/* Left */}
         <div className="flex items-center gap-2 overflow-hidden">
-          {topicMode ? (
+          {huddleMode ? (
+            <IconLock size={16} stroke={1.5} className="text-text-secondary shrink-0" />
+          ) : topicMode ? (
             <TopicState
               type="topic"
               status={isResolved ? 'resolved' : 'unresolved'}
@@ -76,7 +85,7 @@ export function ConversationHeader({
 
         {/* Right */}
         <div className="flex gap-3 items-center shrink-0">
-          {topicMode && !hideTopicMeta && (
+          {topicMode && !hideTopicMeta && !huddleMode && (
             <>
               {/* Open / resolved counts */}
               <div className="flex items-center gap-2">
@@ -88,15 +97,26 @@ export function ConversationHeader({
                   {resolvedCount} resolved
                 </span>
               </div>
-
-              {/* Members */}
-              {members.length > 0 && (
-                <div className="bg-bg-elevated border border-border-default rounded-sm flex gap-2 items-center pl-[2px] pr-2 py-[2px]">
-                  <AvatarGroup members={members} />
-                  <span className="text-caption text-text-secondary">{members.length}</span>
-                </div>
-              )}
             </>
+          )}
+
+          {/* Members pill — shown for both topic mode and huddle mode */}
+          {(topicMode || huddleMode) && !hideTopicMeta && members.length > 0 && (
+            <div className="bg-bg-elevated border border-border-default rounded-sm flex gap-2 items-center pl-[2px] pr-2 py-[2px]">
+              <AvatarGroup members={members} />
+              <span className="text-caption text-text-secondary">{members.length}</span>
+            </div>
+          )}
+
+          {/* Start huddle (V2 / V3 only — driven by onStartHuddle prop). Hidden inside a huddle. */}
+          {onStartHuddle && !huddleMode && (
+            <IconButton
+              tooltip="Start a huddle"
+              aria-label="Start a huddle"
+              onClick={onStartHuddle}
+            >
+              <IconLockPlus size={16} stroke={1.5} />
+            </IconButton>
           )}
 
           {/* Action buttons */}

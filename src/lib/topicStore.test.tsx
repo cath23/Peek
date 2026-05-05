@@ -112,7 +112,7 @@ describe('createTopicFromDm', () => {
     const huddle = result.current.findHuddleByOriginDm(1)
     expect(huddle).toBeDefined()
     expect(huddle!.id).toBe(huddleId)
-    expect(huddle!.conversation.body).toBe(DM1_FIRST.body)
+    expect(huddle!.conversation!.body).toBe(DM1_FIRST.body)
   })
 
   it('returned {topicId, huddleId, promotedAt} matches the inserted record', () => {

@@ -4,8 +4,10 @@ import { ConversationHeader } from '@/components/ConversationHeader'
 import { ConversationCard } from '@/components/ConversationCard'
 import { ThreadPanel } from '@/components/ThreadPanel'
 import { HuddleCard } from '@/components/HuddleCard'
+import { StartHuddleDialog, type StartHuddleResult } from '@/components/StartHuddleDialog'
 import { DateDivider } from '@/components/ui/DateDivider'
 import { ComposeBox, type SendPayload } from '@/components/ui/ComposeBox'
+import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { TopicTabs, type TopicTab } from '@/components/ui/TopicTabs'
 import { IconButton } from '@/components/ui/IconButton'
@@ -19,6 +21,7 @@ import { useStarred } from '@/lib/starred'
 import { useTopicStore } from '@/lib/topicStore'
 import { useTopicMutations } from '@/lib/topicMutations'
 import { useLastSelection } from '@/lib/lastSelection'
+import { useDebug } from '@/lib/debug'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +32,8 @@ interface UseTopicViewArgs {
   onToggleStarred?: () => void
   /** When false, suppress non-urgent hasNewMessage/hasNewReply flags. Urgent flags always show. */
   showUnreads?: boolean
+  /** V2 sidebar tree: when set, auto-opens the matching huddle's thread panel. */
+  selectedHuddleId?: string | null
 }
 
 interface ViewSlots {
@@ -41,6 +46,7 @@ export function useTopicView({
   topicTitle,
   onToggleStarred,
   showUnreads = false,
+  selectedHuddleId: externalSelectedHuddleId = null,
 }: UseTopicViewArgs): ViewSlots {
   const [activeTab, setActiveTab] = useState<TopicTab>('conversations')
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -48,6 +54,8 @@ export function useTopicView({
   const { setPendingDmThreadId } = useLastSelection()
   const { isTopicStarred, toggleTopic } = useStarred()
   const { getHuddlesForTopic, findTopic } = useTopicStore()
+  const { state: debug } = useDebug()
+  const huddleVariant = debug.huddles.variant
   const topic = topicId != null ? findTopic(topicId) : undefined
 
   // Mutation state lives at the app level so a topic's runtime data (sent
@@ -71,6 +79,8 @@ export function useTopicView({
     setDeletedHuddleIds,
     huddleBodyOverrides,
     setHuddleBodyOverrides,
+    huddleSentMessages,
+    setHuddleSentMessages,
     reactionOverrides,
     setReactionOverrides,
     isTopicResolved,
@@ -86,11 +96,13 @@ export function useTopicView({
   // Thread + huddle UI state stays local — it's transient view state, not data.
   const [threadConvId, setThreadConvId] = useState<string | null>(null)
   const huddleCreateRef = useRef<HTMLDivElement>(null)
+  const huddleToInputRef = useRef<HTMLInputElement>(null)
   const [selectedHuddleId, setSelectedHuddleId] = useState<string | null>(null)
   const [isCreatingHuddle, setIsCreatingHuddle] = useState(false)
   const [huddleRecipients, setHuddleRecipients] = useState<string[]>([])
   const [huddleToQuery, setHuddleToQuery] = useState('')
   const [huddleToFocused, setHuddleToFocused] = useState(false)
+  const [huddleSuggestionIndex, setHuddleSuggestionIndex] = useState(0)
 
   const currentGroups = topicId != null ? (TOPIC_CONVERSATIONS[topicId] ?? []) : []
   const currentSent = topicId != null ? (sentMessages[topicId] ?? []) : []
@@ -98,6 +110,7 @@ export function useTopicView({
     ? [...getHuddlesForTopic(topicId), ...(createdHuddles[topicId] ?? [])]
         .filter((h) => !deletedHuddleIds.has(h.id))
         .map((h) => {
+          if (!h.conversation) return h
           const override = huddleBodyOverrides[h.conversation.id]
           if (override) return { ...h, conversation: { ...h.conversation, body: override } }
           return h
@@ -109,11 +122,35 @@ export function useTopicView({
   const hasAnyPublicMessages =
     currentGroups.some((g) => g.convs.some((c) => !deletedIds.has(c.id))) || currentSent.length > 0
 
+  /** V2 huddle main-view: when set, the rightPanel renders the huddle's content
+   *  (header in huddleMode, body of extraConvs) instead of the topic's content.
+   *  Derived directly from the URL-driven externalSelectedHuddleId — using local
+   *  selectedHuddleId here would cause a one-render flicker between URL change
+   *  and the sync effect committing it to local state. */
+  const v2SelectedHuddle =
+    huddleVariant === 2 && externalSelectedHuddleId
+      ? currentHuddles.find((h) => h.id === externalSelectedHuddleId)
+      : undefined
+  const isV2HuddleView = v2SelectedHuddle != null
+  const v2HuddleNameLabel = v2SelectedHuddle
+    ? (() => {
+        const others = v2SelectedHuddle.members.filter((n) => n !== 'You')
+        return others.length > 0 ? others.join(', ') : v2SelectedHuddle.members.join(', ')
+      })()
+    : ''
+
   const allCurrentConvs = [
     ...currentGroups.flatMap((g) => g.convs).filter((c) => !deletedIds.has(c.id)),
     ...currentSent,
   ]
-  const allHuddleConvs = currentHuddles.map((h) => h.conversation)
+  // Includes seed conv + extraConvs + runtime huddleSentMessages across all huddles
+  // in this topic, so clicking any huddle conv card can resolve via this lookup pool.
+  // Empty huddles (no seed conversation) contribute only their extras.
+  const allHuddleConvs: ConversationData[] = currentHuddles.flatMap((h) => [
+    ...(h.conversation ? [h.conversation] : []),
+    ...(h.extraConvs ?? []),
+    ...(huddleSentMessages[h.id] ?? []),
+  ])
 
   /** When the open thread is a promoted huddle's seed message, find that huddle so we can
    *  source the seed message from DM_CONVERSATIONS and render the promotion divider + button. */
@@ -152,7 +189,14 @@ export function useTopicView({
   }))
   const threadSentReplies = threadConvId ? (sentReplies[threadConvId] ?? []) : []
 
-  const openThread = (convId: string) => setThreadConvId(convId)
+  /** Open a regular (non-huddle) thread. Clears any previously-selected huddle so
+   *  the ThreadPanel doesn't keep showing huddle members/lock when the user clicks
+   *  from a HuddleCard to a ConversationCard in V3's mixed stream. Huddle clicks
+   *  use a separate `openHuddle` handler that sets selectedHuddleId directly. */
+  const openThread = (convId: string) => {
+    setSelectedHuddleId(null)
+    setThreadConvId(convId)
+  }
   const closeThread = () => {
     setThreadConvId(null)
     setSelectedHuddleId(null)
@@ -252,9 +296,19 @@ export function useTopicView({
     setHuddleToQuery('')
   }
 
-  // Close huddle creation on outside click or Escape
+  // Backup refocus: any time the recipient list changes while the creator is open,
+  // ensure the To: input keeps the cursor so the user can keep typing more people
+  // without re-clicking the field. Defers a tick so React commits first.
   useEffect(() => {
     if (!isCreatingHuddle) return
+    const t = setTimeout(() => huddleToInputRef.current?.focus(), 0)
+    return () => clearTimeout(t)
+  }, [isCreatingHuddle, huddleRecipients.length])
+
+  // Close inline huddle creation on outside click or Escape. V2 uses a portalled
+  // dialog with its own backdrop, so this effect is skipped there.
+  useEffect(() => {
+    if (!isCreatingHuddle || huddleVariant === 2) return
     const handleClick = (e: MouseEvent) => {
       if (huddleCreateRef.current?.contains(e.target as Node)) return
       cancelHuddleCreation()
@@ -268,12 +322,29 @@ export function useTopicView({
       document.removeEventListener('mousedown', handleClick)
       document.removeEventListener('keydown', handleKey)
     }
-  }, [isCreatingHuddle])
+  }, [isCreatingHuddle, huddleVariant])
+
+  /** V2 huddle main-view compose box: writes a top-level message into the selected huddle. */
+  const handleHuddleMessageSend = ({ text }: SendPayload) => {
+    if (!text || !v2SelectedHuddle) return
+    const now = Date.now()
+    const newMsg: ConversationData = {
+      id: `hsent_${now}`,
+      authorName: 'You',
+      timestamp: new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      body: text,
+    }
+    setHuddleSentMessages((prev) => ({
+      ...prev,
+      [v2SelectedHuddle.id]: [...(prev[v2SelectedHuddle.id] ?? []), newMsg],
+    }))
+  }
 
   const handleHuddleSend = ({ text }: SendPayload) => {
     if (!text || huddleRecipients.length === 0 || topicId == null) return
+    const newHuddleId = `h_new_${Date.now()}`
     const newHuddle: Huddle = {
-      id: `h_new_${Date.now()}`,
+      id: newHuddleId,
       topicId,
       members: ['You', ...huddleRecipients],
       state: 'active',
@@ -289,6 +360,24 @@ export function useTopicView({
     cancelHuddleCreation()
   }
 
+  /** V2 dialog flow: members-only creation. The new huddle has no seed message —
+   *  the user lands inside it and writes their first via the huddle's compose box. */
+  const handleStartHuddleFromDialog = ({ invitees }: StartHuddleResult) => {
+    if (topicId == null || invitees.length === 0) return
+    const newHuddleId = `h_new_${Date.now()}`
+    const newHuddle: Huddle = {
+      id: newHuddleId,
+      topicId,
+      members: ['You', ...invitees.map((p) => p.name)],
+      state: 'active',
+      lastActivity: 'Today',
+      // No conversation set — empty huddle.
+    }
+    setCreatedHuddles((prev) => ({ ...prev, [topicId]: [...(prev[topicId] ?? []), newHuddle] }))
+    setIsCreatingHuddle(false)
+    navigate(`/topics/${topicId}?huddle=${newHuddleId}`)
+  }
+
   const handleDeleteHuddle = (huddleId: string) => {
     setDeletedHuddleIds((prev) => new Set([...prev, huddleId]))
     if (selectedHuddleId === huddleId) {
@@ -300,6 +389,10 @@ export function useTopicView({
   const addRecipient = (name: string) => {
     if (!huddleRecipients.includes(name)) setHuddleRecipients((prev) => [...prev, name])
     setHuddleToQuery('')
+    setHuddleSuggestionIndex(0)
+    // Re-focus the To: input so the user can keep typing more people without re-clicking.
+    // Defer to next tick so React commits the state changes first.
+    setTimeout(() => huddleToInputRef.current?.focus(), 0)
   }
   const removeRecipient = (name: string) => setHuddleRecipients((prev) => prev.filter((n) => n !== name))
 
@@ -314,6 +407,15 @@ export function useTopicView({
     setSelectedHuddleId(null)
     cancelHuddleCreation()
   }, [topicId])
+
+  // V2 sidebar tree: when the URL-driven huddle changes, close any open thread so
+  // a stale thread from the previous huddle doesn't briefly render against the new
+  // huddle's body. v2SelectedHuddle is derived directly from the URL — no local-state
+  // sync needed (which previously caused a one-render flicker).
+  useEffect(() => {
+    if (huddleVariant !== 2) return
+    setThreadConvId(null)
+  }, [huddleVariant, externalSelectedHuddleId])
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
@@ -333,16 +435,136 @@ export function useTopicView({
     }
   }
 
+  /** People-picker + first-message create UI. Identical markup whether mounted in
+   *  V1 (Huddles tab) or V3 (above the topic compose box) — same border treatment
+   *  in both, matching V1's default. */
+  const huddleCreatorBlock = (
+    <div ref={huddleCreateRef} className="shrink-0 px-3 pb-3 flex flex-col gap-0">
+      <div className="relative">
+        <div className="flex items-center gap-2 px-3 py-2 bg-bg-elevated border border-border-default rounded-t-lg">
+          <span className="text-caption text-text-muted shrink-0">To:</span>
+          <div className="flex-1 flex items-center gap-1 flex-wrap min-h-[24px]">
+            {huddleRecipients.map((name) => (
+              <span
+                key={name}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-accent-muted text-text-primary text-sm rounded-sm"
+              >
+                {name}
+                <button
+                  onClick={() => removeRecipient(name)}
+                  className="text-text-muted hover:text-text-primary cursor-pointer"
+                >
+                  <IconX size={12} stroke={1.5} />
+                </button>
+              </span>
+            ))}
+            <input
+              ref={huddleToInputRef}
+              type="text"
+              value={huddleToQuery}
+              onChange={(e) => {
+                setHuddleToQuery(e.target.value)
+                // Reset highlight when the query changes — list contents are now different.
+                setHuddleSuggestionIndex(0)
+              }}
+              onFocus={() => setHuddleToFocused(true)}
+              onBlur={() => setTimeout(() => {
+                // Only mark unfocused if the input genuinely lost focus. Without
+                // this guard, briefly stealing focus on click + immediately refocusing
+                // would still trigger setFocused(false) 150ms later, closing the dropdown.
+                if (document.activeElement !== huddleToInputRef.current) {
+                  setHuddleToFocused(false)
+                }
+              }, 150)}
+              onKeyDown={(e) => {
+                if (toSuggestions.length === 0) return
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setHuddleSuggestionIndex((i) => (i + 1) % toSuggestions.length)
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setHuddleSuggestionIndex((i) => (i - 1 + toSuggestions.length) % toSuggestions.length)
+                } else if (e.key === 'Enter') {
+                  const pick = toSuggestions[huddleSuggestionIndex]
+                  if (pick) {
+                    e.preventDefault()
+                    addRecipient(pick.name)
+                  }
+                }
+              }}
+              placeholder={huddleRecipients.length === 0 ? 'Add people...' : 'Add more...'}
+              autoFocus
+              className="flex-1 min-w-[80px] bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
+            />
+          </div>
+          <button
+            onClick={cancelHuddleCreation}
+            className="flex items-center gap-1.5 text-caption text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+          >
+            Cancel
+            <kbd className="inline-flex items-center justify-center bg-bg-inset border border-border-strong rounded-sm px-1 py-[1px] text-caption text-text-secondary shrink-0">
+              ESC
+            </kbd>
+          </button>
+        </div>
+        {huddleToFocused && toSuggestions.length > 0 && (
+          <div className="absolute left-0 right-0 bottom-full mb-1 bg-bg-elevated border border-border-default rounded-lg shadow-md py-1 max-h-[200px] overflow-y-auto z-50">
+            {toSuggestions.map((person, i) => {
+              const isActive = i === huddleSuggestionIndex
+              return (
+                <button
+                  key={person.id}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setHuddleSuggestionIndex(i)}
+                  onClick={() => addRecipient(person.name)}
+                  className={cn(
+                    'w-full flex items-center gap-2 px-3 py-1.5 transition-colors cursor-pointer',
+                    isActive ? 'bg-bg-hover' : 'hover:bg-bg-hover'
+                  )}
+                >
+                  <Avatar size={24} name={person.name} alt={person.name} />
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm text-text-primary">{person.name}</span>
+                    <span className="text-caption text-text-muted">{person.role}</span>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+      {huddleRecipients.length === 0 ? (
+        // Mirror ComposeBox's outer dimensions (p-3 + min-h-[20px] editor row + gap-4 +
+        // h-6 button row) so the section height is identical before and after the first
+        // recipient is added — guarantees no jump. The hint text uses V1's caption
+        // text-muted styling rather than the editor's body text.
+        <div className="border border-t-0 border-border-default rounded-b-lg overflow-hidden">
+          <div className="bg-bg-inset border border-border-default rounded-lg p-3 flex flex-col gap-4">
+            <div className="min-h-[20px] flex items-center text-caption text-text-muted">
+              Add at least one person to start a Huddle
+            </div>
+            <div className="h-6" />
+          </div>
+        </div>
+      ) : (
+        <div className="border border-t-0 border-border-default rounded-b-lg overflow-hidden">
+          <ComposeBox onSend={handleHuddleSend} placeholder="default" />
+        </div>
+      )}
+    </div>
+  )
+
   const rightPanel = (
     <div className="flex flex-col h-full">
       <ConversationHeader
-        name={topicTitle}
-        topicMode
+        name={isV2HuddleView ? v2HuddleNameLabel : topicTitle}
+        topicMode={!isV2HuddleView}
+        huddleMode={isV2HuddleView}
         isResolved={topicResolved}
         openCount={openCount}
         resolvedCount={resolvedCount}
-        members={topicMembers}
-        hideTopicMeta={activeTab === 'huddles'}
+        members={isV2HuddleView ? v2SelectedHuddle.members : topicMembers}
+        hideTopicMeta={huddleVariant === 1 && activeTab === 'huddles'}
         isStarred={topicId != null && isTopicStarred(topicId)}
         onToggleStarred={
           onToggleStarred ??
@@ -354,39 +576,55 @@ export function useTopicView({
               })
             : undefined)
         }
+        onStartHuddle={
+          huddleVariant === 1 || isV2HuddleView ? undefined : () => setIsCreatingHuddle(true)
+        }
         tabs={
-          <TopicTabs
-            activeTab={activeTab}
-            onTabChange={(tab) => {
-              setActiveTab(tab)
-              setThreadConvId(null)
-              setSelectedHuddleId(null)
-              cancelHuddleCreation()
-            }}
-          />
+          huddleVariant === 1 ? (
+            <TopicTabs
+              activeTab={activeTab}
+              onTabChange={(tab) => {
+                setActiveTab(tab)
+                setThreadConvId(null)
+                setSelectedHuddleId(null)
+                cancelHuddleCreation()
+              }}
+            />
+          ) : undefined
         }
       />
 
-      {/* Conversations tab */}
-      {activeTab === 'conversations' && (
-        <>
-          <div ref={scrollRef} className="flex-1 overflow-y-auto flex flex-col">
-            <div className="flex-1 min-h-0" />
-            <div className="shrink-0 flex flex-col px-4 py-4 gap-2">
-              {currentGroups.map((group) => (
-                <div key={group.dateLabel} className="flex flex-col gap-2">
-                  <DateDivider label={group.dateLabel} className="sticky top-0 z-10 bg-bg-surface" />
-                  {group.convs.filter((c) => !deletedIds.has(c.id)).map((c) => (
+      {/* V2 huddle main view — replaces the topic body when a huddle is selected via the sidebar tree.
+          Body shows huddle.conversation (seed; for DM-promoted huddles this is the original DM message)
+          followed by extraConvs and any huddleSentMessages posted by the user. */}
+      {isV2HuddleView && (() => {
+        // Empty huddles (no seed) just show extras + runtime messages, or nothing.
+        const huddleConvs: ConversationData[] = [
+          ...(v2SelectedHuddle.conversation ? [v2SelectedHuddle.conversation] : []),
+          ...(v2SelectedHuddle.extraConvs ?? []),
+          ...(huddleSentMessages[v2SelectedHuddle.id] ?? []),
+        ]
+        return (
+          <>
+            <div ref={scrollRef} className="flex-1 overflow-y-auto flex flex-col">
+              <div className="flex-1 min-h-0" />
+              <div className="shrink-0 flex flex-col px-4 py-4 gap-2">
+                {huddleConvs.length === 0 ? (
+                  <div className="py-6 flex items-center justify-center">
+                    <span className="text-caption text-text-muted">No messages yet — start the conversation below.</span>
+                  </div>
+                ) : (
+                <div className="flex flex-col gap-2">
+                  <DateDivider label={v2SelectedHuddle.lastActivity} className="sticky top-0 z-10 bg-bg-surface" />
+                  {huddleConvs.map((c) => (
                     <ConversationCard
-                      key={`${topicId}_${c.id}`}
+                      key={`${v2SelectedHuddle.id}_${c.id}`}
                       authorName={c.authorName}
                       timestamp={c.timestamp}
                       body={bodyOverrides[c.id] ?? c.body}
                       reactions={reactionOverrides[c.id] ?? c.reactions}
                       highlightType={c.id in highlightOverrides ? highlightOverrides[c.id] : c.highlightType}
                       replyCount={(REPLIES[c.id]?.length ?? c.replyCount ?? 0) + (sentReplies[c.id]?.length ?? 0)}
-                      hasNewMessage={c.hasNewMessage && (c.isUrgent || showUnreads)}
-                      hasNewReply={c.hasNewReply && (c.isUrgent || showUnreads)}
                       isResolved={isConvResolved(c.id, c.isResolved)}
                       resolvedBy={getConvResolvedBy(c.id, c.resolvedBy)}
                       resolutionMessage={getConvResolutionMsg(c.id, c.resolutionMessage)}
@@ -398,39 +636,193 @@ export function useTopicView({
                       onBodyChange={(b) => handleBodyChange(c.id, b)}
                       onClick={() => openThread(c.id)}
                       onReply={() => openThread(c.id)}
-                      onDelete={() => handleDelete(c.id)}
                     />
                   ))}
                 </div>
-              ))}
+                )}
+              </div>
+            </div>
+            <div className="p-3">
+              <ComposeBox onSend={handleHuddleMessageSend} />
+            </div>
+          </>
+        )
+      })()}
 
-              {currentSent.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <DateDivider label="Today" className="sticky top-0 z-10 bg-bg-surface" />
-                  {currentSent.map((m) => (
-                    <ConversationCard
-                      key={m.id}
-                      authorName={m.authorName}
-                      timestamp={m.timestamp}
-                      body={bodyOverrides[m.id] ?? m.body}
-                      reactions={reactionOverrides[m.id] ?? m.reactions}
-                      highlightType={m.id in highlightOverrides ? highlightOverrides[m.id] : m.highlightType}
-                      replyCount={sentReplies[m.id]?.length ?? 0}
-                      isResolved={isConvResolved(m.id, m.isResolved)}
-                      resolvedBy={getConvResolvedBy(m.id, m.resolvedBy)}
-                      resolutionMessage={getConvResolutionMsg(m.id, m.resolutionMessage)}
-                      showCreateTopic={false}
-                      isSelected={threadConvId === m.id}
-                      onResolvedChange={(resolved, resolvedBy, message) => handleResolvedChange(m.id, resolved, resolved ? (resolvedBy ?? 'You') : undefined, message)}
-                      onReactionsChange={(next) => handleReactionsChange(m.id, next)}
-                      onHighlightChange={(hl) => handleHighlightChange(m.id, hl)}
-                      onBodyChange={(b) => handleBodyChange(m.id, b)}
-                      onClick={() => openThread(m.id)}
-                      onReply={() => openThread(m.id)}
-                      onDelete={() => handleDelete(m.id)}
-                    />
+      {/* Conversations tab — also the only body in V2/V3 (no tabs). Suppressed when a V2 huddle is open. */}
+      {!isV2HuddleView && (huddleVariant !== 1 || activeTab === 'conversations') && (() => {
+        // V3 unified stream: build date-keyed groups containing both convs and huddles
+        // (only "your" huddles, only ones with a conversation seed). Existing V1/V2
+        // rendering preserved unchanged below.
+        type V3Group = { dateLabel: string; convs: ConversationData[]; sent: ConversationData[]; huddles: Huddle[] }
+        const v3Groups: V3Group[] = []
+        if (huddleVariant === 3) {
+          const map = new Map<string, V3Group>()
+          for (const group of currentGroups) {
+            const filtered = group.convs.filter((c) => !deletedIds.has(c.id))
+            if (filtered.length === 0) continue
+            map.set(group.dateLabel, { dateLabel: group.dateLabel, convs: filtered, sent: [], huddles: [] })
+          }
+          // Member-of huddles with a seed; empty huddles can't exist in V3 anyway.
+          const v3Huddles = currentHuddles.filter(
+            (h) => h.conversation != null && h.members.includes('You')
+          )
+          for (const h of v3Huddles) {
+            const date = h.lastActivity
+            const existing = map.get(date)
+            if (existing) existing.huddles.push(h)
+            else map.set(date, { dateLabel: date, convs: [], sent: [], huddles: [h] })
+          }
+          // Sent messages always live under "Today".
+          if (currentSent.length > 0) {
+            const todayLabel = 'Today'
+            const existing = map.get(todayLabel)
+            if (existing) existing.sent.push(...currentSent)
+            else map.set(todayLabel, { dateLabel: todayLabel, convs: [], sent: [...currentSent], huddles: [] })
+          }
+          v3Groups.push(...map.values())
+        }
+        return (
+        <>
+          <div ref={scrollRef} className="flex-1 overflow-y-auto flex flex-col">
+            <div className="flex-1 min-h-0" />
+            <div className="shrink-0 flex flex-col px-4 py-4 gap-2">
+              {huddleVariant === 3 ? (
+                v3Groups.map((group) => (
+                  <div key={group.dateLabel} className="flex flex-col gap-2">
+                    <DateDivider label={group.dateLabel} className="sticky top-0 z-10 bg-bg-surface" />
+                    {group.convs.map((c) => (
+                      <ConversationCard
+                        key={`${topicId}_${c.id}`}
+                        authorName={c.authorName}
+                        timestamp={c.timestamp}
+                        body={bodyOverrides[c.id] ?? c.body}
+                        reactions={reactionOverrides[c.id] ?? c.reactions}
+                        highlightType={c.id in highlightOverrides ? highlightOverrides[c.id] : c.highlightType}
+                        replyCount={(REPLIES[c.id]?.length ?? c.replyCount ?? 0) + (sentReplies[c.id]?.length ?? 0)}
+                        hasNewMessage={c.hasNewMessage && (c.isUrgent || showUnreads)}
+                        hasNewReply={c.hasNewReply && (c.isUrgent || showUnreads)}
+                        isResolved={isConvResolved(c.id, c.isResolved)}
+                        resolvedBy={getConvResolvedBy(c.id, c.resolvedBy)}
+                        resolutionMessage={getConvResolutionMsg(c.id, c.resolutionMessage)}
+                        showCreateTopic={false}
+                        isSelected={threadConvId === c.id}
+                        onResolvedChange={(resolved, resolvedBy, message) => handleResolvedChange(c.id, resolved, resolved ? (resolvedBy ?? 'You') : undefined, message)}
+                        onReactionsChange={(next) => handleReactionsChange(c.id, next)}
+                        onHighlightChange={(hl) => handleHighlightChange(c.id, hl)}
+                        onBodyChange={(b) => handleBodyChange(c.id, b)}
+                        onClick={() => openThread(c.id)}
+                        onReply={() => openThread(c.id)}
+                        onDelete={() => handleDelete(c.id)}
+                      />
+                    ))}
+                    {group.sent.map((m) => (
+                      <ConversationCard
+                        key={m.id}
+                        authorName={m.authorName}
+                        timestamp={m.timestamp}
+                        body={bodyOverrides[m.id] ?? m.body}
+                        reactions={reactionOverrides[m.id] ?? m.reactions}
+                        highlightType={m.id in highlightOverrides ? highlightOverrides[m.id] : m.highlightType}
+                        replyCount={sentReplies[m.id]?.length ?? 0}
+                        isResolved={isConvResolved(m.id, m.isResolved)}
+                        resolvedBy={getConvResolvedBy(m.id, m.resolvedBy)}
+                        resolutionMessage={getConvResolutionMsg(m.id, m.resolutionMessage)}
+                        showCreateTopic={false}
+                        isSelected={threadConvId === m.id}
+                        onResolvedChange={(resolved, resolvedBy, message) => handleResolvedChange(m.id, resolved, resolved ? (resolvedBy ?? 'You') : undefined, message)}
+                        onReactionsChange={(next) => handleReactionsChange(m.id, next)}
+                        onHighlightChange={(hl) => handleHighlightChange(m.id, hl)}
+                        onBodyChange={(b) => handleBodyChange(m.id, b)}
+                        onClick={() => openThread(m.id)}
+                        onReply={() => openThread(m.id)}
+                        onDelete={() => handleDelete(m.id)}
+                      />
+                    ))}
+                    {group.huddles.map((huddle) => {
+                      // safe to access .id — we filtered to conversation != null above
+                      const threadId = huddle.seedMessageId ?? huddle.conversation!.id
+                      const openHuddle = () => {
+                        setSelectedHuddleId(huddle.id)
+                        setThreadConvId(threadId)
+                        cancelHuddleCreation()
+                      }
+                      return (
+                        <HuddleCard
+                          key={huddle.id}
+                          huddle={huddle}
+                          variant="inStream"
+                          isSelected={selectedHuddleId === huddle.id}
+                          onClick={openHuddle}
+                          onReply={openHuddle}
+                          onDelete={() => handleDeleteHuddle(huddle.id)}
+                        />
+                      )
+                    })}
+                  </div>
+                ))
+              ) : (
+                <>
+                  {currentGroups.map((group) => (
+                    <div key={group.dateLabel} className="flex flex-col gap-2">
+                      <DateDivider label={group.dateLabel} className="sticky top-0 z-10 bg-bg-surface" />
+                      {group.convs.filter((c) => !deletedIds.has(c.id)).map((c) => (
+                        <ConversationCard
+                          key={`${topicId}_${c.id}`}
+                          authorName={c.authorName}
+                          timestamp={c.timestamp}
+                          body={bodyOverrides[c.id] ?? c.body}
+                          reactions={reactionOverrides[c.id] ?? c.reactions}
+                          highlightType={c.id in highlightOverrides ? highlightOverrides[c.id] : c.highlightType}
+                          replyCount={(REPLIES[c.id]?.length ?? c.replyCount ?? 0) + (sentReplies[c.id]?.length ?? 0)}
+                          hasNewMessage={c.hasNewMessage && (c.isUrgent || showUnreads)}
+                          hasNewReply={c.hasNewReply && (c.isUrgent || showUnreads)}
+                          isResolved={isConvResolved(c.id, c.isResolved)}
+                          resolvedBy={getConvResolvedBy(c.id, c.resolvedBy)}
+                          resolutionMessage={getConvResolutionMsg(c.id, c.resolutionMessage)}
+                          showCreateTopic={false}
+                          isSelected={threadConvId === c.id}
+                          onResolvedChange={(resolved, resolvedBy, message) => handleResolvedChange(c.id, resolved, resolved ? (resolvedBy ?? 'You') : undefined, message)}
+                          onReactionsChange={(next) => handleReactionsChange(c.id, next)}
+                          onHighlightChange={(hl) => handleHighlightChange(c.id, hl)}
+                          onBodyChange={(b) => handleBodyChange(c.id, b)}
+                          onClick={() => openThread(c.id)}
+                          onReply={() => openThread(c.id)}
+                          onDelete={() => handleDelete(c.id)}
+                        />
+                      ))}
+                    </div>
                   ))}
-                </div>
+
+                  {currentSent.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      <DateDivider label="Today" className="sticky top-0 z-10 bg-bg-surface" />
+                      {currentSent.map((m) => (
+                        <ConversationCard
+                          key={m.id}
+                          authorName={m.authorName}
+                          timestamp={m.timestamp}
+                          body={bodyOverrides[m.id] ?? m.body}
+                          reactions={reactionOverrides[m.id] ?? m.reactions}
+                          highlightType={m.id in highlightOverrides ? highlightOverrides[m.id] : m.highlightType}
+                          replyCount={sentReplies[m.id]?.length ?? 0}
+                          isResolved={isConvResolved(m.id, m.isResolved)}
+                          resolvedBy={getConvResolvedBy(m.id, m.resolvedBy)}
+                          resolutionMessage={getConvResolutionMsg(m.id, m.resolutionMessage)}
+                          showCreateTopic={false}
+                          isSelected={threadConvId === m.id}
+                          onResolvedChange={(resolved, resolvedBy, message) => handleResolvedChange(m.id, resolved, resolved ? (resolvedBy ?? 'You') : undefined, message)}
+                          onReactionsChange={(next) => handleReactionsChange(m.id, next)}
+                          onHighlightChange={(hl) => handleHighlightChange(m.id, hl)}
+                          onBodyChange={(b) => handleBodyChange(m.id, b)}
+                          onClick={() => openThread(m.id)}
+                          onReply={() => openThread(m.id)}
+                          onDelete={() => handleDelete(m.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -452,21 +844,29 @@ export function useTopicView({
               </div>
             </div>
           )}
-          <div className="p-3">
-            <ComposeBox onSend={handleSend} />
-          </div>
+          {/* V3 only: the topic-header "+ Start huddle" button toggles isCreatingHuddle and
+              flips the regular composer into the people-picker + first-message creator.
+              V2 uses a portalled dialog (rendered below) and never touches the composer. */}
+          {isCreatingHuddle && huddleVariant === 3 ? (
+            huddleCreatorBlock
+          ) : (
+            <div className="p-3">
+              <ComposeBox onSend={handleSend} />
+            </div>
+          )}
         </>
-      )}
+        )
+      })()}
 
-      {/* Timeline tab */}
-      {activeTab === 'timeline' && (
+      {/* Timeline tab (V1 only) */}
+      {huddleVariant === 1 && activeTab === 'timeline' && (
         <div className="flex-1 flex items-center justify-center">
           <EmptyState message="A selective view of how this topic evolved - highlights, resolutions, and key events." />
         </div>
       )}
 
-      {/* Huddles tab */}
-      {activeTab === 'huddles' && (
+      {/* Huddles tab (V1 only) */}
+      {huddleVariant === 1 && activeTab === 'huddles' && (
         <>
           {currentHuddles.length === 0 && !isCreatingHuddle ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-4">
@@ -486,10 +886,11 @@ export function useTopicView({
                   // Promoted-from-DM huddles route the thread to the original DM
                   // message id so replies/reactions/highlights mirror across both
                   // entry points (DM thread panel and huddle thread panel).
-                  const threadId = huddle.seedMessageId ?? huddle.conversation.id
+                  // Empty huddles (no seed) just select without opening a thread.
+                  const threadId = huddle.seedMessageId ?? huddle.conversation?.id
                   const openHuddle = () => {
                     setSelectedHuddleId(huddle.id)
-                    setThreadConvId(threadId)
+                    if (threadId) setThreadConvId(threadId)
                     cancelHuddleCreation()
                   }
                   return (
@@ -520,75 +921,16 @@ export function useTopicView({
               </div>
             </div>
           )}
-          {isCreatingHuddle && (
-            <div ref={huddleCreateRef} className="shrink-0 px-3 pb-3 flex flex-col gap-0">
-              <div className="relative">
-                <div className="flex items-center gap-2 px-3 py-2 bg-bg-elevated border border-border-default rounded-t-lg">
-                  <span className="text-caption text-text-muted shrink-0">To:</span>
-                  <div className="flex-1 flex items-center gap-1 flex-wrap min-h-[24px]">
-                    {huddleRecipients.map((name) => (
-                      <span
-                        key={name}
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-accent-muted text-text-primary text-sm rounded-sm"
-                      >
-                        {name}
-                        <button
-                          onClick={() => removeRecipient(name)}
-                          className="text-text-muted hover:text-text-primary cursor-pointer"
-                        >
-                          <IconX size={12} stroke={1.5} />
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      type="text"
-                      value={huddleToQuery}
-                      onChange={(e) => setHuddleToQuery(e.target.value)}
-                      onFocus={() => setHuddleToFocused(true)}
-                      onBlur={() => setTimeout(() => setHuddleToFocused(false), 150)}
-                      placeholder={huddleRecipients.length === 0 ? 'Add people...' : ''}
-                      autoFocus
-                      className="flex-1 min-w-[80px] bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
-                    />
-                  </div>
-                  <button
-                    onClick={cancelHuddleCreation}
-                    className="text-caption text-text-muted hover:text-text-primary transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </div>
-                {huddleToFocused && toSuggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 bottom-full mb-1 bg-bg-elevated border border-border-default rounded-lg shadow-md py-1 max-h-[200px] overflow-y-auto z-50">
-                    {toSuggestions.map((person) => (
-                      <button
-                        key={person.id}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => addRecipient(person.name)}
-                        className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-bg-hover transition-colors cursor-pointer"
-                      >
-                        <div className="size-6 rounded-sm overflow-hidden shrink-0 bg-accent-muted" />
-                        <div className="flex flex-col items-start">
-                          <span className="text-sm text-text-primary">{person.name}</span>
-                          <span className="text-caption text-text-muted">{person.role}</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {huddleRecipients.length === 0 ? (
-                <div className="flex items-center justify-center py-4 px-3 bg-bg-surface border border-t-0 border-border-default rounded-b-lg">
-                  <span className="text-caption text-text-muted">Add at least one person to start a Huddle</span>
-                </div>
-              ) : (
-                <div className="border border-t-0 border-border-default rounded-b-lg overflow-hidden">
-                  <ComposeBox onSend={handleHuddleSend} placeholder="default" />
-                </div>
-              )}
-            </div>
-          )}
+          {isCreatingHuddle && huddleCreatorBlock}
         </>
+      )}
+
+      {/* V2 dialog: members-only, portalled, sits above any body branch. */}
+      {isCreatingHuddle && huddleVariant === 2 && (
+        <StartHuddleDialog
+          onConfirm={handleStartHuddleFromDialog}
+          onCancel={() => setIsCreatingHuddle(false)}
+        />
       )}
     </div>
   )
@@ -600,12 +942,14 @@ export function useTopicView({
       sentReplies={threadSentReplies}
       isResolved={isConvResolved(threadConv.id, threadConv.isResolved)}
       huddleMembers={
-        selectedHuddleId
+        // V2 huddle view already shows lock + members in the rightPanel header,
+        // so we suppress the duplicate pill on ThreadPanel.
+        selectedHuddleId && huddleVariant !== 2
           ? currentHuddles.find((h) => h.id === selectedHuddleId)?.members ?? []
           : []
       }
       huddleMemberCount={
-        selectedHuddleId
+        selectedHuddleId && huddleVariant !== 2
           ? currentHuddles.find((h) => h.id === selectedHuddleId)?.members.length
           : undefined
       }

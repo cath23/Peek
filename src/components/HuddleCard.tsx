@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { IconMessage2, IconDotsVertical } from '@tabler/icons-react'
+import { IconMessage2, IconDotsVertical, IconLock } from '@tabler/icons-react'
 import { Avatar } from './ui/Avatar'
 import { Divider } from './ui/Divider'
 import { IconButton } from './ui/IconButton'
@@ -10,6 +10,9 @@ import type { Huddle } from '@/data/huddleData'
 interface HuddleCardProps {
   huddle: Huddle
   isSelected?: boolean
+  /** 'grid' = legacy 2-col Huddles tab card (130px tall, 2-line preview).
+   *  'inStream' = compact V3 inline card (1-line preview, private register, lock icon). */
+  variant?: 'grid' | 'inStream'
   onClick?: () => void
   onReply?: () => void
   onDelete?: () => void
@@ -49,24 +52,30 @@ export function MemberAvatars({
 export function HuddleCard({
   huddle,
   isSelected = false,
+  variant = 'grid',
   onClick,
   onReply,
   onDelete,
   className,
 }: HuddleCardProps) {
+  const inStream = variant === 'inStream'
   const [isHovered, setIsHovered] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const memberLabel =
+  // Grid keeps the legacy "first + N" truncation; inStream shows full comma-joined
+  // names (the user-side label is "you and these other people").
+  const gridMemberLabel =
     huddle.members.length <= 2
       ? huddle.members.join(', ')
       : `${huddle.members[0]} + ${huddle.members.length - 1}`
+  const inStreamMemberLabel = huddle.members.join(', ')
 
-  const bodyText = huddle.conversation.body
+  // Empty huddles (no seed conversation) show a placeholder preview.
+  const bodyText = huddle.conversation?.body ?? 'No messages yet'
 
-  const replyCount = huddle.conversation.replyCount ?? 0
+  const replyCount = huddle.conversation?.replyCount ?? 0
 
   const handleMore = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -98,17 +107,33 @@ export function HuddleCard({
     return () => document.removeEventListener('mousedown', close)
   }, [showMenu])
 
+  // Single-line preview body for the inStream variant — strip newlines so the
+  // truncate happens cleanly at the card's right edge.
+  const flatBody = bodyText.replace(/\n+/g, ' ').trim()
+
   return (
     <>
       <div
         className={cn(
-          'relative flex flex-col p-2 rounded-lg cursor-pointer transition-colors h-[130px]',
+          'relative flex flex-col rounded-lg cursor-pointer transition-colors',
           'border',
-          isSelected
-            ? 'bg-bg-selected border-border-subtle'
-            : isHovered
-              ? 'bg-bg-hover border-border-default'
-              : 'bg-bg-surface border-border-subtle',
+          inStream
+            ? 'p-2 gap-1'
+            : 'p-2 h-[130px]',
+          // Color register: inStream uses bg-private for the privacy tint, but mirrors
+          // V1 grid's border treatment (subtle default → default on hover) so the card
+          // edge looks the same shape & weight as ConversationCard sitting next to it.
+          inStream
+            ? isSelected
+              ? 'bg-bg-selected border-border-subtle'
+              : isHovered
+                ? 'bg-bg-hover border-border-default'
+                : 'bg-bg-private border-border-subtle'
+            : isSelected
+              ? 'bg-bg-selected border-border-subtle'
+              : isHovered
+                ? 'bg-bg-hover border-border-default'
+                : 'bg-bg-surface border-border-subtle',
           className
         )}
         onClick={(e) => {
@@ -123,37 +148,69 @@ export function HuddleCard({
           setIsHovered(false)
         }}
       >
-        {/* Header: avatars + names + timestamp */}
+        {/* Header. inStream uses a single 24px lock-avatar (purple square with lock icon)
+            instead of overlapping member avatars — communicates "this is a huddle" with
+            one icon and clusters [avatar + names + timestamp] together like ConversationCard.
+            grid keeps the legacy member-avatars + first-only name preview. */}
         <div className="flex items-center gap-2">
-          <MemberAvatars
-            members={huddle.members}
-            borderClass={isSelected ? 'border-bg-selected' : isHovered ? 'border-bg-hover' : 'border-bg-surface'}
-          />
-          <span className="text-body-2-strong text-text-primary truncate flex-1">
-            {memberLabel}
+          {inStream ? (
+            <div className="size-6 rounded-sm bg-bg-inset flex items-center justify-center shrink-0">
+              <IconLock size={16} stroke={1.5} className="text-text-primary" />
+            </div>
+          ) : (
+            <MemberAvatars
+              members={huddle.members}
+              borderClass={
+                isSelected ? 'border-bg-selected' : isHovered ? 'border-bg-hover' : 'border-bg-surface'
+              }
+            />
+          )}
+          {/* tw-merge silently drops `text-body-2-strong` when followed by `text-text-primary`
+              inside a cn() call (both share the `text-` prefix). Explicit arbitrary values
+              preserve the body-2-strong styling: 14px / 140% line-height / weight 500. */}
+          <span className={cn(
+            'text-[14px] leading-[140%] font-medium text-text-primary truncate',
+            // inStream: shrink so the timestamp can sit immediately after the names.
+            // grid: take remaining flex width so the timestamp stays at the right edge.
+            inStream ? 'min-w-0' : 'flex-1'
+          )}>
+            {inStream ? inStreamMemberLabel : gridMemberLabel}
           </span>
           <span className="text-caption text-text-muted whitespace-nowrap shrink-0">
-            {huddle.lastActivity}, {huddle.conversation.timestamp}
+            {inStream
+              ? (huddle.conversation?.timestamp ?? huddle.lastActivity)
+              : huddle.conversation
+                ? `${huddle.lastActivity}, ${huddle.conversation.timestamp}`
+                : huddle.lastActivity}
           </span>
         </div>
 
-        {/* Message preview - 2 lines with ellipsis */}
-        <div className="pt-1 flex-1 min-h-0 overflow-hidden">
-          <p className="text-caption text-text-secondary leading-[1.4] line-clamp-2">
-            {bodyText.split('\n').filter(Boolean).map((line, i) => {
-              const cleaned = line.replace(/^[-•]\s/, '• ').replace(/^\d+\.\s/, (m) => m)
-              return (
-                <span key={i}>
-                  {i > 0 && <br />}
-                  {cleaned}
-                </span>
-              )
-            })}
+        {/* Body preview — 1 line in inStream, 2 lines in grid. inStream's body is
+            indented with pl-8 to align under the names (matches ConversationCard's
+            body which uses pl-8 to sit under the author name). */}
+        {inStream ? (
+          <p className="pl-8 text-caption text-text-secondary leading-[1.4] truncate">
+            {flatBody}
           </p>
-        </div>
+        ) : (
+          <div className="pt-1 flex-1 min-h-0 overflow-hidden">
+            <p className="text-caption text-text-secondary leading-[1.4] line-clamp-2">
+              {bodyText.split('\n').filter(Boolean).map((line, i) => {
+                const cleaned = line.replace(/^[-•]\s/, '• ').replace(/^\d+\.\s/, (m) => m)
+                return (
+                  <span key={i}>
+                    {i > 0 && <br />}
+                    {cleaned}
+                  </span>
+                )
+              })}
+            </p>
+          </div>
+        )}
 
-        {/* Footer: replies - 24px total height */}
-        {replyCount > 0 && (
+        {/* Reply-count footer — only in grid variant. inStream keeps the card tight;
+            replies are visible once the user opens the thread. */}
+        {!inStream && replyCount > 0 && (
           <div className="flex items-center gap-2 text-text-secondary h-6">
             <IconMessage2 size={14} stroke={1.5} className="shrink-0" />
             <span className="text-caption">
@@ -162,7 +219,7 @@ export function HuddleCard({
           </div>
         )}
 
-        {/* Quick menu on hover */}
+        {/* Quick menu on hover — same pattern in both variants */}
         {isHovered && (
           <div className="absolute right-[3px] top-[3px]" onClick={(e) => e.stopPropagation()}>
             <div className="bg-bg-elevated border border-border-subtle rounded-sm shadow-sm flex items-start gap-1 p-1">

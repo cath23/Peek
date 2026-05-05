@@ -14,9 +14,16 @@ interface UnreadsDebug {
   people: boolean
 }
 
+export type HuddleVariant = 1 | 2 | 3
+
+interface HuddlesDebug {
+  variant: HuddleVariant
+}
+
 export interface DebugState {
   desk: DeskDebug
   unreads: UnreadsDebug
+  huddles: HuddlesDebug
 }
 
 const DEFAULT_DEBUG: DebugState = {
@@ -32,12 +39,16 @@ const DEFAULT_DEBUG: DebugState = {
     topics: false,
     people: false,
   },
+  huddles: {
+    variant: 1,
+  },
 }
 
 interface DebugContextValue {
   state: DebugState
   setDesk: <K extends keyof DeskDebug>(key: K, value: DeskDebug[K]) => void
   setUnreads: <K extends keyof UnreadsDebug>(key: K, value: UnreadsDebug[K]) => void
+  setHuddles: <K extends keyof HuddlesDebug>(key: K, value: HuddlesDebug[K]) => void
 }
 
 const DebugContext = createContext<DebugContextValue | null>(null)
@@ -53,7 +64,11 @@ export function DebugProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, unreads: { ...prev.unreads, [key]: value } }))
   }
 
-  return <DebugContext.Provider value={{ state, setDesk, setUnreads }}>{children}</DebugContext.Provider>
+  const setHuddles = <K extends keyof HuddlesDebug>(key: K, value: HuddlesDebug[K]) => {
+    setState((prev) => ({ ...prev, huddles: { ...prev.huddles, [key]: value } }))
+  }
+
+  return <DebugContext.Provider value={{ state, setDesk, setUnreads, setHuddles }}>{children}</DebugContext.Provider>
 }
 
 export function useDebug() {

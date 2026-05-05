@@ -3,11 +3,12 @@ import {
   IconCircleCheck,
   IconUsers,
   IconBrackets,
+  IconLock,
 } from '@tabler/icons-react'
 import { Avatar } from './Avatar'
 import { cn } from '@/lib/utils'
 
-export type TopicStateType = 'topic' | 'DM' | 'team' | 'group' | 'view'
+export type TopicStateType = 'topic' | 'DM' | 'team' | 'group' | 'view' | 'huddle'
 export type TopicStateStatus = 'unresolved' | 'resolved' | 'default'
 
 interface TopicStateProps {
@@ -46,6 +47,8 @@ export function TopicState({
         </div>
       ) : type === 'view' ? (
         <IconBrackets size={16} stroke={1.5} className={cn('text-text-secondary', iconClassName)} />
+      ) : type === 'huddle' ? (
+        <IconLock size={16} stroke={1.5} className={cn('text-text-secondary', iconClassName)} />
       ) : null}
     </div>
   )

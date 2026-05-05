@@ -37,6 +37,9 @@ interface TopicMutationsValue {
   setDeletedHuddleIds: Dispatch<SetStateAction<Set<string>>>
   huddleBodyOverrides: Record<string, string>
   setHuddleBodyOverrides: Dispatch<SetStateAction<Record<string, string>>>
+  /** Top-level messages posted into a huddle from the V2 huddle main view, keyed by huddleId. */
+  huddleSentMessages: Record<string, ConversationData[]>
+  setHuddleSentMessages: Dispatch<SetStateAction<Record<string, ConversationData[]>>>
   reactionOverrides: Record<string, ReactionData[]>
   setReactionOverrides: Dispatch<SetStateAction<Record<string, ReactionData[]>>>
   /**
@@ -60,6 +63,7 @@ export function TopicMutationsProvider({ children }: { children: ReactNode }) {
   const [createdHuddles, setCreatedHuddles] = useState<Record<string, Huddle[]>>({})
   const [deletedHuddleIds, setDeletedHuddleIds] = useState<Set<string>>(new Set())
   const [huddleBodyOverrides, setHuddleBodyOverrides] = useState<Record<string, string>>({})
+  const [huddleSentMessages, setHuddleSentMessages] = useState<Record<string, ConversationData[]>>({})
   const [reactionOverrides, setReactionOverrides] = useState<Record<string, ReactionData[]>>({})
 
   const isTopicResolved = useCallback(
@@ -93,11 +97,13 @@ export function TopicMutationsProvider({ children }: { children: ReactNode }) {
       setDeletedHuddleIds,
       huddleBodyOverrides,
       setHuddleBodyOverrides,
+      huddleSentMessages,
+      setHuddleSentMessages,
       reactionOverrides,
       setReactionOverrides,
       isTopicResolved,
     }),
-    [sentMessages, deletedIds, resolvedOverrides, sentReplies, bodyOverrides, highlightOverrides, createdHuddles, deletedHuddleIds, huddleBodyOverrides, reactionOverrides, isTopicResolved],
+    [sentMessages, deletedIds, resolvedOverrides, sentReplies, bodyOverrides, highlightOverrides, createdHuddles, deletedHuddleIds, huddleBodyOverrides, huddleSentMessages, reactionOverrides, isTopicResolved],
   )
 
   return <TopicMutationsContext.Provider value={value}>{children}</TopicMutationsContext.Provider>

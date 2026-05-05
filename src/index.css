@@ -53,6 +53,10 @@
   --border-default: #E4E4E7;
   --border-strong:  #D4D4D8;
   --border-focus:   #8B5CF6;
+  --border-private: #C9CDD8;
+
+  /* private (huddle register) — distinct from accent, signals "private side-space" */
+  --bg-private:     #F1F2F7;
 
   /* accent */
   --accent-primary: #8B5CF6;
@@ -99,6 +103,10 @@
   --border-default: #2D2D31;
   --border-strong:  #52525B;
   --border-focus:   #A78BFA;
+  --border-private: #3D414C;
+
+  /* private (huddle register) — distinct from accent, signals "private side-space" */
+  --bg-private:     #181A1F;
 
   /* accent */
   --accent-primary: #A78BFA;

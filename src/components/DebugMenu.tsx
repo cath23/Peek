@@ -10,7 +10,7 @@ interface DebugMenuProps {
 
 export function DebugMenu({ anchorEl, onClose }: DebugMenuProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const { state, setDesk, setUnreads } = useDebug()
+  const { state, setDesk, setUnreads, setHuddles } = useDebug()
 
   useEffect(() => {
     const click = (e: MouseEvent) => {
@@ -118,6 +118,19 @@ export function DebugMenu({ anchorEl, onClose }: DebugMenuProps) {
           ]}
           value={state.unreads.people}
           onChange={(v) => setUnreads('people', v)}
+        />
+      </DebugSection>
+
+      <DebugSection title="Huddles">
+        <DebugRow
+          label="Variant"
+          options={[
+            { label: 'Tabs', value: 1 as const },
+            { label: 'Tree', value: 2 as const },
+            { label: 'Inline', value: 3 as const },
+          ]}
+          value={state.huddles.variant}
+          onChange={(v) => setHuddles('variant', v)}
         />
       </DebugSection>
     </div>,
