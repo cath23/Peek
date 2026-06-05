@@ -78,12 +78,12 @@ Two independent undo levels at all times:
 2. **Remote** — `origin/main` holds the pristine pre-monorepo repo; `origin/monorepo`
    holds work-in-progress. Worst case = re-clone.
 
-**Status as of this doc:**
-- `main` @ `ae51df5` — your real work (HuddleCard live reply count + debug default),
-  committed & pushed. **This is the restore point** for all monorepo work.
-- `monorepo` @ `ae51df5` — branched from `main`; all restructuring builds on top.
-- `2372a8a` ("Huddle variants") — the prior pristine commit, still in history if you ever
-  need to go further back than your HuddleCard work.
+**Status (updated after Phase 1):**
+- `main` @ `ae51df5` — pre-monorepo restore point (still single-app layout). Untouched.
+- Tag `pre-monorepo` @ `4dbf237` — pushed; pinpoint restore for the monorepo branch.
+- `monorepo` @ `3aabaed` — Phase 1 done: repo promoted to `k:/PeekApp`, app at `apps/peek`,
+  pnpm+Turborepo scaffolded, builds + tests green.
+- **Repo root moved**: was `k:/PeekApp/peek-app/`, now `k:/PeekApp/`.
 
 ### The one irreversible-by-checkout step
 Phase 1 moves the `.git` directory **up** from `peek-app/` to the workspace root. That is
@@ -215,13 +215,18 @@ Each phase ends green (app still runs) and gets its own commit.
 - HuddleCard/debug WIP committed onto `main` (`ae51df5`) and pushed.
 - `monorepo` branch created from `main`, pushed. Restructuring starts here.
 
-### Phase 1 — Scaffold workspace, move app in-place
-1. Tag `pre-monorepo` on current `monorepo` HEAD.
-2. Move `.git` from `peek-app/` → `k:/PeekApp/` (root). Root becomes the repo.
-3. `git mv` everything that was `peek-app/*` → `apps/peek/*` (history follows).
-4. Add root `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`.
-5. `pnpm install` at root; confirm `pnpm --filter peek dev` still runs Peek unchanged.
-- **Exit check:** Peek runs identically. Nothing extracted yet.
+### Phase 1 — Scaffold workspace, move app in-place ✅ DONE
+1. ✅ Tagged `pre-monorepo` (pushed) — permanent restore point.
+2. ✅ `git mv` all app files → `apps/peek/*` (history follows), then moved `.git` + `apps`
+   up to `k:/PeekApp/`; removed leftover `peek-app/`. Repo root is now `k:/PeekApp`.
+3. ✅ Added root `package.json` (name `nostr-for-business`), `pnpm-workspace.yaml`,
+   `turbo.json`, `tsconfig.base.json`, root `.gitignore`.
+4. ✅ Renamed app package `peek-app` → `peek`; declared `@tiptap/core` (pnpm is strict
+   about transitive deps npm hoisted); dropped `package-lock.json` for `pnpm-lock.yaml`.
+5. ✅ `pnpm install` + `pnpm build` (turbo) green + 50/50 tests pass.
+- **Exit check:** ✅ Peek builds & tests identically from `apps/peek`. Nothing extracted yet.
+- Commits: `a1b916c` (nest), `3aabaed` (scaffold).
+- Note: `PRDs/`, `QA-PLAN.md`, `.claude/` left untracked at root (decide later).
 
 ### Phase 2 — Extract `packages/tokens`
 1. Move token config into `packages/tokens` (preset + CSS vars + theme provider).
