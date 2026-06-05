@@ -1,0 +1,16 @@
+{
+  "name": "nostr-for-business",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.22.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "peek": "pnpm --filter peek dev"
+  },
+  "devDependencies": {
+    "turbo": "^2"
+  }
+}
