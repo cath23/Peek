@@ -5,6 +5,8 @@ import { Avatar } from './ui/Avatar'
 import { Divider } from './ui/Divider'
 import { IconButton } from './ui/IconButton'
 import { cn } from '@/lib/utils'
+import { REPLIES } from '@/data/replyData'
+import { useTopicMutations } from '@/lib/topicMutations'
 import type { Huddle } from '@/data/huddleData'
 
 interface HuddleCardProps {
@@ -75,7 +77,16 @@ export function HuddleCard({
   // Empty huddles (no seed conversation) show a placeholder preview.
   const bodyText = huddle.conversation?.body ?? 'No messages yet'
 
-  const replyCount = huddle.conversation?.replyCount ?? 0
+  // Reply count = static REPLIES + runtime sentReplies for the thread id the card
+  // opens (seedMessageId for promoted huddles, conversation.id otherwise — same id
+  // useTopicView uses to open the thread panel). Mirrors how ConversationCard
+  // computes its replyCount in the views, so new replies typed in the thread panel
+  // increment the card's count without needing a manual refresh.
+  const { sentReplies } = useTopicMutations()
+  const threadId = huddle.seedMessageId ?? huddle.conversation?.id
+  const replyCount = threadId
+    ? (REPLIES[threadId]?.length ?? huddle.conversation?.replyCount ?? 0) + (sentReplies[threadId]?.length ?? 0)
+    : (huddle.conversation?.replyCount ?? 0)
 
   const handleMore = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -115,20 +126,21 @@ export function HuddleCard({
     <>
       <div
         className={cn(
-          'relative flex flex-col rounded-lg cursor-pointer transition-colors',
+          'relative flex flex-col rounded-lg cursor-pointer transition-colors overflow-hidden',
           'border',
-          inStream
-            ? 'p-2 gap-1'
-            : 'p-2 h-[130px]',
-          // Color register: inStream uses bg-private for the privacy tint, but mirrors
-          // V1 grid's border treatment (subtle default → default on hover) so the card
-          // edge looks the same shape & weight as ConversationCard sitting next to it.
+          inStream ? '' : 'h-[130px]',
+          // Color register:
+          // inStream V3 huddles use bg-surface for the body — same tier as
+          // ConversationCard so they sit at the same level on the page. The
+          // bg-inset banner above (same surface tier as the ComposeBox container)
+          // does the visual differentiation: a labeled inset/recessed strip in
+          // light mode, a lighter strip in dark mode.
           inStream
             ? isSelected
-              ? 'bg-bg-selected border-border-subtle'
+              ? 'bg-bg-selected border-border-default'
               : isHovered
                 ? 'bg-bg-hover border-border-default'
-                : 'bg-bg-private border-border-subtle'
+                : 'bg-bg-surface border-border-default'
             : isSelected
               ? 'bg-bg-selected border-border-subtle'
               : isHovered
@@ -148,6 +160,26 @@ export function HuddleCard({
           setIsHovered(false)
         }}
       >
+        {/* "Huddle" top banner — V3 inStream only. A neutral elevated-grey strip
+            (lighter than the body's bg-private), edge-to-edge so the parent's
+            rounded-lg + overflow-hidden give it rounded top corners. Differentiates
+            the card in V3's mixed stream where huddles and conversation cards appear
+            side by side. */}
+        {inStream && (
+          <div className="h-6 bg-bg-inset px-2 flex items-center shrink-0">
+            <span className="text-caption text-text-primary leading-none">Huddle</span>
+          </div>
+        )}
+
+        {/* Body wrapper — owns padding (so the banner can fill edge-to-edge) and is the
+            positioning parent for the hover-menu absolute overlay. When the inStream
+            reply footer renders we drop the wrapper's bottom padding so the footer's
+            own pb-1.5 owns the bottom spacing exactly like ConversationCard does. */}
+        <div className={cn(
+          'relative flex flex-col px-2 pt-2',
+          inStream ? 'gap-1' : 'flex-1',
+          inStream && replyCount > 0 ? '' : 'pb-2',
+        )}>
         {/* Header. inStream uses a single 24px lock-avatar (purple square with lock icon)
             instead of overlapping member avatars — communicates "this is a huddle" with
             one icon and clusters [avatar + names + timestamp] together like ConversationCard.
@@ -208,14 +240,27 @@ export function HuddleCard({
           </div>
         )}
 
-        {/* Reply-count footer — only in grid variant. inStream keeps the card tight;
-            replies are visible once the user opens the thread. */}
+        {/* Reply-count footer.
+            grid: compact 14px icon + caption text, hugs the bottom of the card.
+            inStream: matches ConversationCard's footer exactly (16px icon, text-chip,
+            pl-8 pr-2 pb-1.5) so huddles and conversations sitting side by side in
+            V3's mixed stream share the same reply-count chrome. */}
         {!inStream && replyCount > 0 && (
           <div className="flex items-center gap-2 text-text-secondary h-6">
             <IconMessage2 size={14} stroke={1.5} className="shrink-0" />
             <span className="text-caption">
               {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
             </span>
+          </div>
+        )}
+        {inStream && replyCount > 0 && (
+          <div className="flex items-center gap-2 pl-8 pr-2 pb-1.5 w-full">
+            <div className="flex items-center gap-2 py-1.5 shrink-0">
+              <IconMessage2 size={16} stroke={1.5} className="text-text-secondary shrink-0" />
+              <span className="text-chip text-text-secondary">
+                {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+              </span>
+            </div>
           </div>
         )}
 
@@ -233,6 +278,7 @@ export function HuddleCard({
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* More menu (portalled) */}

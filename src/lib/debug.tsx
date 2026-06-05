@@ -40,7 +40,7 @@ const DEFAULT_DEBUG: DebugState = {
     people: false,
   },
   huddles: {
-    variant: 1,
+    variant: 3,
   },
 }
 
