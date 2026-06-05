@@ -2,7 +2,7 @@ import { type ReactNode } from 'react'
 import { IconStar, IconStarFilled, IconDotsVertical, IconLockPlus, IconLock } from '@tabler/icons-react'
 import { TopicState } from './ui/TopicState'
 import { Avatar } from './ui/Avatar'
-import { IconButton } from './ui/IconButton'
+import { IconButton } from '@nostr-for-business/ui'
 import { cn } from '@/lib/utils'
 
 interface ConversationHeaderProps {

@@ -5,7 +5,7 @@ import { PeekMention, UrgentMention, TopicMention, FileMention, isSuggestionActi
 import { ResolutionBlock, extractResolution } from '@/extensions/resolution'
 import { HighlightTag, extractHighlightType } from '@/extensions/highlight'
 import { IconPaperclip, IconSquareForbid2, IconArrowUp, IconHighlight } from '@tabler/icons-react'
-import { IconButton } from './IconButton'
+import { IconButton } from '@nostr-for-business/ui'
 import { HighlightSwatch } from './HighlightPill'
 import { cn } from '@/lib/utils'
 import { HIGHLIGHT_META, type HighlightType } from '@/data/topicData'

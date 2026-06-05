@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@nostr-for-business/tokens": "workspace:*",
+    "@nostr-for-business/ui": "workspace:*",
     "@tabler/icons-react": "^3.41.1",
     "@tiptap/core": "^3.22.1",
     "@tiptap/extension-mention": "^3.22.1",

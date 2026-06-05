@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { IconMenu2, IconHelpCircle, IconSun, IconMoon, IconDeviceDesktop, IconCheck } from '@tabler/icons-react'
-import { IconButton } from './ui/IconButton'
+import { IconButton } from '@nostr-for-business/ui'
 import { Avatar } from './ui/Avatar'
 import { SearchInput } from './ui/SearchInput'
 import { DebugMenu } from './DebugMenu'

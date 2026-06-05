@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { IconX } from '@tabler/icons-react'
-import { IconButton } from './ui/IconButton'
-import { Button } from './ui/Button'
+import { Button, IconButton } from '@nostr-for-business/ui'
 import { PersonChipInput } from './ui/PersonChipInput'
 import type { Person } from '@/data/peopleData'
 
