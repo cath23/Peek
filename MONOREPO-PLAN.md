@@ -97,19 +97,110 @@ Commit after **every** phase so each is an isolated, revertible step.
 
 ---
 
-## 3. Component split (what goes global)
+## 3. Component split — master list
 
-**→ `packages/ui` (generic, reused by Kanban/Canvas):**
-`Avatar`, `Button`, `IconButton`, `Chip`, `Divider`, `EmptyState`, `SearchInput`,
-`SectionHeader`, `Tooltip`, `WithTooltip`, `Reaction`, `DateDivider`
+Reconciled across **code** (`apps/peek/src`) and **Figma** (file `9bMbli06kF6uGNs8zWn26y`):
+- Figma node `3:2` = **Design Tokens** page → maps to `packages/tokens`.
+- Figma node `42:2` = **Components** page (~80 components) → maps to `packages/ui` + `apps/peek`.
 
-**→ stay in `apps/peek` (Peek-domain-specific):**
-`TopicMenu`, `TopicState`, `TopicTabs`, `FilesMenu`, `MentionMenu`, `StarredSection`,
-`PersonChipInput`, `PersonRow`, `ComposeBox`, `HighlightPill`
+> **Pre-validated in Figma.** The "extract a shell, swap the content" model is already
+> how the Figma library is built: a `Menu` component exposes a `content` slot, with
+> swappable `TopicMenuContent` / `MentionMenuContent` / `FilesMenuContent` /
+> `ConversationMoreMenuContent*`; `DialogShell` exposes a body slot with
+> `DialogBodyContent` (resolve/createTopic). There is even a "How to use — content swap"
+> guide frame. So Phase 3 extraction maps **1:1** to existing Figma components, not a
+> new invention.
 
-**→ `packages/tokens` (infrastructure, not "components"):**
-`lib/utils.ts` (`cn()`), `lib/theme.tsx` (ThemeProvider/useTheme), `index.css` vars,
-`tailwind.config.js` token mappings.
+### Buckets
+- **A — Generic now**: move to `packages/ui` as-is (or tiny tweak).
+- **B — Extract a shell**: pull the reusable skeleton into `packages/ui`; the Peek content
+  that fills it stays in `apps/peek`. ← the high-value bucket.
+- **C — Peek domain**: stays in `apps/peek`, refactored to compose A + B.
+
+---
+
+### 🌐 GLOBAL → `@nostr-for-business/ui`
+
+**Primitives (atoms):**
+`Button`, `IconButton`, `Avatar`, `AvatarStack` (from MemberAvatars), `Chip`,
+`Badge/Pill` (underlies HighlightPill), `Divider`, `DateDivider`, `Tooltip`,
+`ShortcutBadge`/`KeyboardHint`, `SearchInput` (drop "Search Peek" default), `TextInput`,
+`TextArea`, `InputLabel`, `EmptyState`, `Tabs` (Tab + TabBar), `NavItem`, `SectionHeader`,
+`PanelHeader` (rename of ContainerHeader), `Reaction`, `ReactionPicker` + `EmojiButton`,
+`UnreadIndicator`, `Backdrop`, `IconContainer32`, `BrandIcon` (AppIcon: github/figma/linear),
+`ListRow` (from PersonRow/MentionMenuRow), `MenuItem`, `MenuSectionHeader`.
+
+**Shells / slots (Bucket B):**
+`Menu` (surface + content slot), `DialogShell` (+ DialogBodySlot + Backdrop),
+`SidePanel` (from ThreadPanel/RightPanel), `AppShell` (expanded/collapsed),
+`TopBar` (app-bar shell), `NavRail` (rail shell), `SidebarSection`,
+`ChipInput`/`TokenInput` (from PersonChipInput), `Composer` (ComposeBox frame;
+extensions stay in Peek).
+
+**Shared hooks → `@nostr-for-business/ui`:**
+`usePopover` (anchor + portal + auto-flip), `useDismiss` (outside-click + Escape).
+`cn()` and `ThemeProvider`/`useTheme` live in `@nostr-for-business/tokens`.
+
+---
+
+### 🟣 PEEK-SPECIFIC → `apps/peek`
+
+**Domain cards & views:**
+`ConversationCard` (15 variants), `ThreadReplyCard`, `HuddleCard`, `PersonRow`,
+`PersonRowList`, `ConversationHeader` (topic/dm), `ThreadPanel` (conversation/huddle),
+`RightPanel` (topic/dm/empty/huddles), `SidebarPanel` (people/topics), `PinnedMessage`,
+`HuddleGrid`, `NewHuddleButton`.
+
+**Menu content (plug into global `Menu`):**
+`ConversationMoreMenuContentDM`, `ConversationMoreMenuContentTopic`,
+`ReplyMoreMenuContent`, `HuddleMoreMenuContent`, `ConversationQuickMenu`,
+`HighlightMenuItem`, `HighlightSubmenuContent`, `TopicMenuContent`,
+`MentionMenuContent` (people/urgent), `FilesMenuContent` (browse-L1/L2/search),
+rows: `MentionMenuRow`, `TopicMenuRow`, `FilesAppNavRow`, `FilesResultRow`,
+`FilesBackHeader`.
+
+**Dialog content (plug into global `DialogShell`):**
+`DialogBodyContent` (resolve / createTopic), `EditMessageBox`.
+
+**Domain atoms:**
+`TopicState` (resolved/DM/team/group/view), `HighlightPill` + `HighlightSwatch`,
+`InlineTag` (mention/urgent/topic-ref/file-ref/highlight), `ResolutionMessage`,
+`ReplyCount`, `TopicStatusTexts`, `MembersPill`, ComposeBox Tiptap extensions
+(@mention, `[topic`, `!urgent`).
+
+---
+
+### 🔵 KANBAN → `apps/kanban` (blue theme)
+
+**Reuses from global (no new work):** `AppShell`, `TopBar`, `NavRail`, `NavItem`, `Menu`,
+`MenuItem`, `DialogShell`, `SidePanel`, `Tabs`, `Button`, `IconButton`, `Avatar`,
+`AvatarStack`, `Chip`, `SearchInput`, `TextInput`, `TextArea`, `ChipInput`,
+`SectionHeader`, `PanelHeader`, `EmptyState`, `Tooltip`, `Backdrop`, `BrandIcon`.
+
+**Net-new (board-specific):**
+| Component | Built from |
+|---|---|
+| Board | layout |
+| BoardColumn | PanelHeader + count + add |
+| KanbanCard | title, LabelBadge, assignee, priority, id |
+| LabelBadge | ← Chip/Badge |
+| PriorityIcon / StatusIcon | new icons |
+| AssigneeAvatarStack | ← AvatarStack |
+| IssueDetailPanel | ← SidePanel |
+| NewIssueDialog | ← DialogShell + DialogBodyContent |
+| IssueContextMenu | ← Menu + MenuItem |
+| BoardFilterBar / FilterMenu | ← Menu |
+| ViewTabs / BoardSwitcher | ← Tabs |
+| CardDragOverlay / ColumnDropZone | `@dnd-kit` |
+
+~22 reused vs ~12 new — the board is mostly composition of existing shells.
+
+---
+
+### `packages/tokens` (infrastructure, not "components")
+`lib/utils.ts` (`cn()`), `lib/theme.tsx` (ThemeProvider/useTheme), `index.css` vars
+(renamed to **semantic** roles in Phase 2), `tailwind.config.js` token mappings,
+per-brand theme css (peek purple / kanban blue / canvas green).
 
 > Rule of thumb: if Kanban could plausibly use it and it has no Peek concepts baked in,
 > it's global. Providers and context go in tokens/infra, not ui.
@@ -142,11 +233,17 @@ Each phase ends green (app still runs) and gets its own commit.
 - **Exit check:** Peek looks pixel-identical (semantic rename is behavior-neutral).
 
 ### Phase 3 — Extract `packages/ui`
-1. Move the 12 generic components into `packages/ui/src`; create barrel `index.ts`.
-2. Move `cn()` into `packages/ui/src/lib` (or import from tokens).
-3. Update Peek's imports: `./ui/Button` → `@nostr-for-business/ui`.
-4. Codemod the import paths (search/replace) and run `tsc -b`.
-- **Exit check:** `tsc -b` clean, Peek runs, all 12 components render from the package.
+Use the §3 master list. Extract in dependency order: primitives first, then Bucket-B
+shells, then refactor Peek content onto them.
+1. Move the GLOBAL **primitives** into `packages/ui/src`; create barrel `index.ts`.
+2. Extract the **Bucket-B shells** (`Menu`, `DialogShell`, `SidePanel`, `AppShell`,
+   `TopBar`, `NavRail`, `SidebarSection`, `ChipInput`, `Composer`) + hooks
+   (`usePopover`, `useDismiss`). These map **1:1** to existing Figma components (see §3 note).
+3. Refactor Peek's domain content (menu content, dialog content, cards) to compose the
+   shells instead of re-declaring the surface markup.
+4. Update imports: `./ui/Button` → `@nostr-for-business/ui`; codemod paths, run `tsc -b`.
+- **Exit check:** `tsc -b` clean, Peek runs, every global component renders from the package;
+  no menu/dialog surface markup duplicated in `apps/peek`.
 
 ### Phase 4 — Storybook app (see §5 for detail)
 - New `apps/storybook`, wired to the shared preset + theme, stories for every ui component.
