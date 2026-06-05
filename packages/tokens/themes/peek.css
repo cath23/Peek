@@ -1,0 +1,22 @@
+/**
+ * Peek brand theme — purple accent.
+ * Loaded after base.css; only overrides the brand-colored variables.
+ * Kanban (blue) and Canvas (green) provide their own themes/<brand>.css with the
+ * same variable names but different values.
+ */
+
+/* ─── Light ─── */
+:root {
+  --accent-primary: #8B5CF6;
+  --accent-hover:   #7C3AED;
+  --accent-muted:   #EDE9FE;
+  --border-focus:   #8B5CF6;
+}
+
+/* ─── Dark ─── */
+.dark {
+  --accent-primary: #A78BFA;
+  --accent-hover:   #8B5CF6;
+  --accent-muted:   #2E2554;
+  --border-focus:   #A78BFA;
+}

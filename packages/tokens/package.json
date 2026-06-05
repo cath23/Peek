@@ -1,0 +1,11 @@
+{
+  "name": "@nostr-for-business/tokens",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared design tokens: Tailwind preset, base CSS variables, and per-brand themes",
+  "files": [
+    "tailwind-preset.cjs",
+    "base.css",
+    "themes"
+  ]
+}

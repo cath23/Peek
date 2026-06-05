@@ -8,6 +8,8 @@ import { TopicStoreProvider } from './lib/topicStore'
 import { TopicMutationsProvider } from './lib/topicMutations'
 import { LastSelectionProvider } from './lib/lastSelection'
 import { ToastProvider } from './lib/toast'
+import '@nostr-for-business/tokens/base.css'
+import '@nostr-for-business/tokens/themes/peek.css'
 import './index.css'
 import App from './App.tsx'
 
