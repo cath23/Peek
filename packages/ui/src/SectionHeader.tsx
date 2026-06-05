@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { IconChevronRight, IconPlus, IconSortDescending } from '@tabler/icons-react'
-import { IconButton } from '@nostr-for-business/ui'
-import { cn } from '@/lib/utils'
+import { IconButton } from './IconButton'
+import { cn } from './lib/cn'
 
 interface SectionHeaderProps {
   title: string

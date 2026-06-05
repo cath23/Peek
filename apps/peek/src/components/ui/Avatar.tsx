@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils'
+import { Avatar as BaseAvatar } from '@nostr-for-business/ui'
 import { avatarFor } from '@/data/peopleData'
 
 interface AvatarProps {
@@ -10,18 +10,11 @@ interface AvatarProps {
   className?: string
 }
 
+/**
+ * Peek avatar: resolves an image by person name via avatarFor, then renders the shared
+ * Avatar primitive. Keeps Peek's name-based API while the global primitive stays pure.
+ */
 export function Avatar({ src, name, alt = '', size = 36, className }: AvatarProps) {
   const resolved = src ?? avatarFor(name) ?? avatarFor(alt)
-  return (
-    <div
-      className={cn('rounded-sm overflow-hidden shrink-0 bg-bg-inset', className)}
-      style={{ width: size, height: size }}
-    >
-      {resolved ? (
-        <img src={resolved} alt={alt || name || ''} className="w-full h-full object-cover" />
-      ) : (
-        <div className="w-full h-full bg-accent-muted" />
-      )}
-    </div>
-  )
+  return <BaseAvatar src={resolved} alt={alt || name || ''} size={size} className={className} />
 }

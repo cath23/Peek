@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { IconMenu2, IconHelpCircle, IconSun, IconMoon, IconDeviceDesktop, IconCheck } from '@tabler/icons-react'
-import { IconButton } from '@nostr-for-business/ui'
+import { IconButton, SearchInput } from '@nostr-for-business/ui'
 import { Avatar } from './ui/Avatar'
-import { SearchInput } from './ui/SearchInput'
 import { DebugMenu } from './DebugMenu'
 import { useTheme, type Theme } from '@/lib/theme'
 import avatarSrc from '@/assets/avatar.png'
@@ -52,7 +51,7 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
 
       {/* Center */}
       <div className="flex-1 flex items-center justify-center pointer-events-auto">
-        <SearchInput shortcut="⌘ K" className="w-[290px]" />
+        <SearchInput shortcut="⌘ K" placeholder="Search Peek..." className="w-[290px]" />
       </div>
 
       {/* Right */}

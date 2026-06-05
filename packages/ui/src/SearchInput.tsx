@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils'
+import { cn } from './lib/cn'
 import { type InputHTMLAttributes } from 'react'
 
 interface SearchInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'className'> {
@@ -9,7 +9,7 @@ interface SearchInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, '
 export function SearchInput({
   shortcut,
   className,
-  placeholder = 'Search Peek...',
+  placeholder = 'Search…',
   ...props
 }: SearchInputProps) {
   return (
