@@ -228,14 +228,25 @@ Each phase ends green (app still runs) and gets its own commit.
 - Commits: `a1b916c` (nest), `3aabaed` (scaffold).
 - Note: `PRDs/`, `QA-PLAN.md`, `.claude/` left untracked at root (decide later).
 
-### Phase 2 — Extract `packages/tokens`
-1. Move token config into `packages/tokens` (preset + CSS vars + theme provider).
-2. **Rename literal token names → semantic roles** (`primary`, `surface`, `border`,
-   `muted`, `accent`, …). Define `peek.css` with current purple values.
-3. `apps/peek/tailwind.config.js` → `presets: [require('@nostr-for-business/tokens/tailwind-preset.cjs')]`
-   and its `content` glob includes `../../packages/ui/src/**/*`.
-4. Peek imports `tokens/base.css` + `themes/peek.css` once at entry.
-- **Exit check:** Peek looks pixel-identical (semantic rename is behavior-neutral).
+### Phase 2 — Extract `packages/tokens` ✅ DONE
+1. ✅ Created `packages/tokens`: `tailwind-preset.cjs` (typography/radius/colors→var/
+   shadows), `base.css` (brand-neutral vars + base element styles), `themes/peek.css`.
+2. ✅ **No rename needed** — tokens were already semantic (`accent-primary` → `var(...)`,
+   not `purple`). Only work was isolating the brand vars: just **4** (`--accent-primary`,
+   `--accent-hover`, `--accent-muted`, `--border-focus`) → `themes/peek.css`. Everything
+   else (bg/text/border/semantic/shadows) is brand-neutral in `base.css`.
+3. ✅ `apps/peek/tailwind.config.js` uses the preset via `createRequire` (ESM config →
+   CJS preset) + `content` glob includes `../../packages/ui/src/**/*`.
+4. ✅ Peek imports `tokens/base.css` + `themes/peek.css` in `main.tsx` (JS import, before
+   `index.css`); `index.css` trimmed to `@tailwind` + tiptap only.
+- **Exit check:** ✅ build green, 50/50 tests, dev serves; bundle vars match original
+  exactly (`--accent-primary #8b5cf6/#a78bfa`, `--bg-base`, `--border-focus`). Commit `2008ce9`.
+- **Deviation from plan:** `tokens` is kept **framework-agnostic** (pure CSS + preset, no
+  React). `ThemeProvider`/`useTheme` stays in `apps/peek/src/lib/theme.tsx` this phase and
+  moves to `packages/ui` in Phase 3. Brand = which `themes/<brand>.css` an app imports
+  (app-level), so the provider only needs to handle dark/light — no brand logic.
+- **Multi-theme ready:** Kanban/Canvas add `themes/kanban.css` (blue) / `themes/canvas.css`
+  (green) overriding the same 4 vars; nothing else changes.
 
 ### Phase 3 — Extract `packages/ui`
 Use the §3 master list. Extract in dependency order: primitives first, then Bucket-B
