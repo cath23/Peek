@@ -21,3 +21,4 @@ export { Tabs, type TabDef } from './Tabs'
 // Shells
 export { Menu, MenuItem, MenuSection } from './Menu'
 export { DialogShell } from './DialogShell'
+export { AppShell } from './AppShell'
