@@ -8,7 +8,7 @@ import {
   IconChevronRight,
   IconX,
 } from '@tabler/icons-react'
-import { Divider, cn } from '@nostr-for-business/ui'
+import { Divider, Menu, MenuItem, MenuSection, cn } from '@nostr-for-business/ui'
 import { HighlightSwatch } from './ui/HighlightPill'
 import { HIGHLIGHT_META, type HighlightType } from '@/data/topicData'
 
@@ -29,44 +29,6 @@ interface ConversationMoreMenuProps {
   onViewDetails?: () => void
   onDelete?: () => void
   className?: string
-}
-
-function MenuItem({
-  icon,
-  label,
-  shortcut,
-  destructive,
-  onClick,
-}: {
-  icon?: React.ReactNode
-  label: string
-  shortcut?: string
-  destructive?: boolean
-  onClick?: () => void
-}) {
-  return (
-    <div
-      className={cn(
-        'flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-bg-hover w-full',
-      )}
-      onClick={onClick}
-    >
-      {icon && <span className="shrink-0">{icon}</span>}
-      <span
-        className={cn(
-          'flex-1 text-sm truncate',
-          destructive ? 'text-error-default' : 'text-text-secondary'
-        )}
-      >
-        {label}
-      </span>
-      {shortcut && (
-        <kbd className="inline-flex items-center justify-center bg-bg-inset border border-border-strong rounded-sm px-1 py-[1px] text-caption text-text-secondary shrink-0">
-          {shortcut}
-        </kbd>
-      )}
-    </div>
-  )
 }
 
 export function ConversationMoreMenu({
@@ -109,18 +71,8 @@ export function ConversationMoreMenu({
   }, [showHighlightSub])
 
   return (
-    <div
-      data-interactive
-      className={cn(
-        'bg-bg-elevated border border-border-default rounded-lg shadow-lg w-[244px] p-2 flex flex-col gap-2',
-        className
-      )}
-    >
-      <div className="flex flex-col">
-        <div className="flex h-[32px] items-center px-2">
-          <span className="text-h5 text-text-primary">Utilities</span>
-        </div>
-
+    <Menu data-interactive className={cn('w-[244px]', className)}>
+      <MenuSection title="Utilities">
         {isTopic ? (
           <>
             <MenuItem
@@ -210,16 +162,16 @@ export function ConversationMoreMenu({
             )}
           </div>
         )}
-      </div>
+      </MenuSection>
 
       <Divider className="mx-0" />
 
-      <div className="flex flex-col">
+      <MenuSection>
         {!isTopic && isOwnMessage && (
           <MenuItem label="Edit message" onClick={onEditMessage} />
         )}
         <MenuItem label="View details" onClick={onViewDetails} />
-      </div>
+      </MenuSection>
 
       {isOwnMessage && (
         <>
@@ -227,6 +179,6 @@ export function ConversationMoreMenu({
           <MenuItem label="Delete" destructive onClick={onDelete} />
         </>
       )}
-    </div>
+    </Menu>
   )
 }

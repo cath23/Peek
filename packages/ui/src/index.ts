@@ -17,3 +17,6 @@ export { Tooltip } from './Tooltip'
 export { WithTooltip } from './WithTooltip'
 export { IconButton } from './IconButton'
 export { Tabs, type TabDef } from './Tabs'
+
+// Shells
+export { Menu, MenuItem, MenuSection } from './Menu'
