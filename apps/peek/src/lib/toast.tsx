@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, useMemo, useEffect, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { IconCircleCheck } from '@tabler/icons-react'
-import { cn } from '@/lib/utils'
+import { cn } from '@nostr-for-business/ui'
 
 type ToastType = 'success' | 'brand' | 'neutral'
 

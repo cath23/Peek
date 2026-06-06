@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { Avatar } from './Avatar'
-import { cn } from '@/lib/utils'
+import { cn } from '@nostr-for-business/ui'
 import { type Person } from '@/data/peopleData'
 
 interface MentionMenuProps {

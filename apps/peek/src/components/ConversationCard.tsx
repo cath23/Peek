@@ -24,7 +24,7 @@ import {
 } from '@tabler/icons-react'
 import figmaIcon from '@/assets/figma icon.svg'
 import linearIcon from '@/assets/linear icon.svg'
-import { Button, Chip, IconButton, Reaction as ReactionPill } from '@nostr-for-business/ui'
+import { Button, Chip, IconButton, Reaction as ReactionPill, cn } from '@nostr-for-business/ui'
 import { Avatar } from './ui/Avatar'
 import { TopicState } from './ui/TopicState'
 import { ConversationQuickMenu } from './ConversationQuickMenu'
@@ -37,7 +37,6 @@ import { TOPICS, type ReactionData, type HighlightType } from '@/data/topicData'
 import { APP_FILES, DOCUMENT_FILES } from '@/data/filesData'
 import { useTopicMutations } from '@/lib/topicMutations'
 import { HighlightPill } from './ui/HighlightPill'
-import { cn } from '@/lib/utils'
 
 import { MENTION_RE, parseInlineContent, serializeInline, textToTiptapContent, serializeTiptapToText, parseBodySegments } from '@/lib/textParsing'
 

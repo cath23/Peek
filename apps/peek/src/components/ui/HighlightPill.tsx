@@ -1,5 +1,5 @@
 import { HIGHLIGHT_META, type HighlightType } from '@/data/topicData'
-import { cn } from '@/lib/utils'
+import { cn } from '@nostr-for-business/ui'
 
 interface HighlightPillProps {
   type: HighlightType

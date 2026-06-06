@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { IconChevronRight } from '@tabler/icons-react'
 import { PersonRow } from './PersonRow'
-import { cn } from '@/lib/utils'
+import { cn } from '@nostr-for-business/ui'
 import type { TopicStateType, TopicStateStatus } from './TopicState'
 
 export interface StarredItem {

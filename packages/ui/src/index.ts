@@ -1,6 +1,7 @@
 // @nostr-for-business/ui — shared UI library barrel.
 
 export { cn } from './lib/cn'
+export { ThemeProvider, useTheme, type Theme } from './theme'
 
 // Primitives
 export { Avatar } from './Avatar'

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useDebug } from '@/lib/debug'
-import { cn } from '@/lib/utils'
+import { cn } from '@nostr-for-business/ui'
 
 interface DebugMenuProps {
   anchorEl: HTMLElement | null

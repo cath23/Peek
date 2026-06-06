@@ -6,7 +6,7 @@ import {
   IconLock,
 } from '@tabler/icons-react'
 import { Avatar } from './Avatar'
-import { cn } from '@/lib/utils'
+import { cn } from '@nostr-for-business/ui'
 
 export type TopicStateType = 'topic' | 'DM' | 'team' | 'group' | 'view' | 'huddle'
 export type TopicStateStatus = 'unresolved' | 'resolved' | 'default'

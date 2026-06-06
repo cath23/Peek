@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { cn } from '@/lib/utils'
+import { cn } from '@nostr-for-business/ui'
 import { type ReactNode } from 'react'
 
 interface NavItemProps {

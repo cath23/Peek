@@ -5,7 +5,7 @@ import { ConversationCard } from '@/components/ConversationCard'
 import { ThreadPanel } from '@/components/ThreadPanel'
 import { HuddleCard } from '@/components/HuddleCard'
 import { StartHuddleDialog, type StartHuddleResult } from '@/components/StartHuddleDialog'
-import { Button, DateDivider, EmptyState, IconButton } from '@nostr-for-business/ui'
+import { Button, DateDivider, EmptyState, IconButton, cn } from '@nostr-for-business/ui'
 import { ComposeBox, type SendPayload } from '@/components/ui/ComposeBox'
 import { Avatar } from '@/components/ui/Avatar'
 import { TopicTabs, type TopicTab } from '@/components/ui/TopicTabs'
@@ -20,7 +20,6 @@ import { useTopicMutations } from '@/lib/topicMutations'
 import { useLastSelection } from '@/lib/lastSelection'
 import { useDebug } from '@/lib/debug'
 import { useNavigate } from 'react-router-dom'
-import { cn } from '@/lib/utils'
 
 interface UseTopicViewArgs {
   topicId: string | null

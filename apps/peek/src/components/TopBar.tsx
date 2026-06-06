@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { IconMenu2, IconHelpCircle, IconSun, IconMoon, IconDeviceDesktop, IconCheck } from '@tabler/icons-react'
-import { IconButton, SearchInput } from '@nostr-for-business/ui'
+import { IconButton, SearchInput, type Theme, useTheme } from '@nostr-for-business/ui'
 import { Avatar } from './ui/Avatar'
 import { DebugMenu } from './DebugMenu'
-import { useTheme, type Theme } from '@/lib/theme'
 import avatarSrc from '@/assets/avatar.png'
 
 interface TopBarProps {

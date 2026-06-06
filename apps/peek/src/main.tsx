@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { Analytics } from '@vercel/analytics/react'
-import { ThemeProvider } from './lib/theme'
+import { ThemeProvider } from '@nostr-for-business/ui'
 import { DebugProvider } from './lib/debug'
 import { StarredProvider } from './lib/starred'
 import { TopicStoreProvider } from './lib/topicStore'

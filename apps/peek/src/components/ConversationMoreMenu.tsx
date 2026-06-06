@@ -8,9 +8,8 @@ import {
   IconChevronRight,
   IconX,
 } from '@tabler/icons-react'
-import { Divider } from '@nostr-for-business/ui'
+import { Divider, cn } from '@nostr-for-business/ui'
 import { HighlightSwatch } from './ui/HighlightPill'
-import { cn } from '@/lib/utils'
 import { HIGHLIGHT_META, type HighlightType } from '@/data/topicData'
 
 interface ConversationMoreMenuProps {

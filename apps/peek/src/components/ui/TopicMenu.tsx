@@ -1,5 +1,5 @@
 import { TopicState } from './TopicState'
-import { cn } from '@/lib/utils'
+import { cn } from '@nostr-for-business/ui'
 import { useTopicMutations } from '@/lib/topicMutations'
 import { type Topic } from '@/data/topicData'
 

@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { IconDotsVertical, IconAlertSquareRounded, IconX } from '@tabler/icons-react'
 import { TopicState, type TopicStateType, type TopicStateStatus } from './TopicState'
-import { IconButton } from '@nostr-for-business/ui'
-import { cn } from '@/lib/utils'
+import { IconButton, cn } from '@nostr-for-business/ui'
 import { avatarFor } from '@/data/peopleData'
 
 interface PersonRowProps {

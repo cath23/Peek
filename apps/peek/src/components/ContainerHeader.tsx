@@ -4,8 +4,7 @@ import {
   IconSortDescending,
   IconEdit,
 } from '@tabler/icons-react'
-import { IconButton } from '@nostr-for-business/ui'
-import { cn } from '@/lib/utils'
+import { IconButton, cn } from '@nostr-for-business/ui'
 import { type ReactNode } from 'react'
 
 interface ContainerHeaderProps {

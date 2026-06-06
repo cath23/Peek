@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils'
+import { cn } from '@nostr-for-business/ui'
 
 export const REACTION_EMOJIS = ['👍', '💯', '🙏', '🚀', '🎉']
 

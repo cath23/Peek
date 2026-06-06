@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { IconX } from '@tabler/icons-react'
 import { Avatar } from './Avatar'
 import { PEOPLE, type Person } from '@/data/peopleData'
-import { cn } from '@/lib/utils'
+import { cn } from '@nostr-for-business/ui'
 
 interface PersonChipInputProps {
   value: Person[]
