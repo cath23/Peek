@@ -248,18 +248,34 @@ Each phase ends green (app still runs) and gets its own commit.
 - **Multi-theme ready:** Kanban/Canvas add `themes/kanban.css` (blue) / `themes/canvas.css`
   (green) overriding the same 4 vars; nothing else changes.
 
-### Phase 3 — Extract `packages/ui`
-Use the §3 master list. Extract in dependency order: primitives first, then Bucket-B
-shells, then refactor Peek content onto them.
-1. Move the GLOBAL **primitives** into `packages/ui/src`; create barrel `index.ts`.
-2. Extract the **Bucket-B shells** (`Menu`, `DialogShell`, `SidePanel`, `AppShell`,
-   `TopBar`, `NavRail`, `SidebarSection`, `ChipInput`, `Composer`) + hooks
-   (`usePopover`, `useDismiss`). These map **1:1** to existing Figma components (see §3 note).
-3. Refactor Peek's domain content (menu content, dialog content, cards) to compose the
-   shells instead of re-declaring the surface markup.
-4. Update imports: `./ui/Button` → `@nostr-for-business/ui`; codemod paths, run `tsc -b`.
-- **Exit check:** `tsc -b` clean, Peek runs, every global component renders from the package;
-  no menu/dialog surface markup duplicated in `apps/peek`.
+### Phase 3 — Extract `packages/ui` 🟡 IN PROGRESS
+Done in verified, independently-committed batches:
+- **3-batch1** ✅ `cn` + Button, Chip, Divider, Tooltip, WithTooltip, IconButton (`4387c6e`).
+- **3-batch2** ✅ DateDivider, EmptyState, Reaction, SearchInput, SectionHeader; **wrapper
+  pattern** for Avatar (pure core + Peek name-resolving wrapper) and Tabs (generic +
+  Peek TopicTabs wrapper) (`b0905ae`).
+- **3-batch3a** ✅ ThemeProvider/useTheme moved to ui; `cn` deduped (deleted app
+  `lib/utils.ts`) (`0646f02`).
+- **3-batch3b** ✅ `Menu`/`MenuItem`/`MenuSection` shell; ConversationMoreMenu composes it (`a6b86d5`).
+- **3-batch3c** ✅ `DialogShell`; Resolve/CreateTopic/StartHuddle dialogs composed onto it (`7a9a80d`).
+
+`@nostr-for-business/ui` now exports: cn, ThemeProvider/useTheme, Avatar, Button, Chip,
+Divider, DateDivider, EmptyState, Reaction, SearchInput, SectionHeader, Tooltip,
+WithTooltip, IconButton, Tabs, **Menu/MenuItem/MenuSection, DialogShell**.
+
+**Remaining (heavier — defer/continue as desired):**
+- `AppShell`/`TopBar`/`NavRail`/`NavItem` chrome — needs slot refactor (topBar/navRail
+  become slots; AppShell owns the collapse state).
+- `SidePanel` — generic skeleton from ThreadPanel (header + scroll body + footer).
+- `ChipInput` — generic from PersonChipInput.
+- `Composer` — partial from ComposeBox (frame only; Tiptap @mention/[topic/!urgent
+  extensions stay in Peek).
+- Adopt `Menu` surface in the other menus (ConversationQuickMenu, TopBar theme menu,
+  DebugMenu, TopicMenu, FilesMenu) — incremental.
+- hooks `usePopover` / `useDismiss`.
+
+- **Exit check (so far):** ✅ build green, 50/50 tests each batch. App imports come from
+  `@nostr-for-business/ui`; menu + dialog surface markup no longer duplicated.
 
 ### Phase 4 — Storybook app (see §5 for detail)
 - New `apps/storybook`, wired to the shared preset + theme, stories for every ui component.
