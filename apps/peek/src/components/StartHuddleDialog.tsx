@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, DialogShell } from '@nostr-for-business/ui'
+import { Button, DialogShell, InputLabel } from '@nostr-for-business/ui'
 import { PersonChipInput } from './ui/PersonChipInput'
 import type { Person } from '@/data/peopleData'
 
@@ -41,10 +41,7 @@ export function StartHuddleDialog({ onConfirm, onCancel }: StartHuddleDialogProp
     >
       <div className="pl-5 pr-4 py-4 flex flex-col gap-6 border-b border-border-subtle overflow-y-auto">
         <div className="flex flex-col gap-2">
-          <label className="text-input-label text-text-primary flex items-center">
-            Invite people
-            <span className="text-error-default ml-0.5">*</span>
-          </label>
+          <InputLabel required>Invite people</InputLabel>
           <PersonChipInput
             value={invitees}
             onChange={setInvitees}

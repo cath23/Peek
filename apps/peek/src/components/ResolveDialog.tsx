@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, DialogShell } from '@nostr-for-business/ui'
+import { Button, DialogShell, InputLabel, TextArea } from '@nostr-for-business/ui'
 
 interface ResolveDialogProps {
   onResolve: (message: string) => void
@@ -21,15 +21,13 @@ export function ResolveDialog({ onResolve, onCancel }: ResolveDialogProps) {
       }
     >
       <div className="pl-5 pr-4 py-4 flex flex-col gap-2 border-b border-border-subtle">
-        <label className="text-input-label text-text-primary">
-          Resolution message (optional)
-        </label>
-        <textarea
+        <InputLabel>Resolution message (optional)</InputLabel>
+        <TextArea
           autoFocus
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Summarize the outcome or decision..."
-          className="bg-bg-inset border border-border-default focus:border-border-strong rounded-lg px-3 py-2 text-body-2 text-text-primary placeholder:text-text-muted resize-none outline-none h-[109px] leading-[1.4] transition-colors"
+          className="h-[109px]"
         />
       </div>
     </DialogShell>
