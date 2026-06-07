@@ -4,8 +4,8 @@ import StarterKit from '@tiptap/starter-kit'
 import { PeekMention, UrgentMention, TopicMention, FileMention, isSuggestionActive } from '@/extensions/mention'
 import { ResolutionBlock, extractResolution } from '@/extensions/resolution'
 import { HighlightTag, extractHighlightType } from '@/extensions/highlight'
-import { IconPaperclip, IconSquareForbid2, IconArrowUp, IconHighlight } from '@tabler/icons-react'
-import { IconButton, cn } from '@nostr-for-business/ui'
+import { IconPaperclip, IconSquareForbid2, IconHighlight } from '@tabler/icons-react'
+import { Composer, IconButton, cn } from '@nostr-for-business/ui'
 import { HighlightSwatch } from './HighlightPill'
 import { HIGHLIGHT_META, type HighlightType } from '@/data/topicData'
 
@@ -362,7 +362,30 @@ export function ComposeBox({ onSend, placeholder = 'default', className }: Compo
   const shortcutItems = filteredSlashItems.filter((i): i is SlashItem & { kind: 'shortcut' } => i.kind === 'shortcut')
 
   return (
-    <div ref={composeRef} className={cn('relative', className)}>
+    <Composer
+      ref={composeRef}
+      className={className}
+      onSend={handleSend}
+      canSend={!isEmpty}
+      tools={
+        <>
+          <IconButton tooltip="Attach file" aria-label="Attach file">
+            <IconPaperclip size={16} stroke={1.5} />
+          </IconButton>
+          <IconButton tooltip="Snooze" aria-label="Snooze">
+            <IconSquareForbid2 size={16} stroke={1.5} />
+          </IconButton>
+          <IconButton
+            aria-label="Highlight"
+            tooltip="Mark as Highlight"
+            onClick={() => setShowHighlightPicker((v) => !v)}
+          >
+            <IconHighlight size={16} stroke={1.5} />
+          </IconButton>
+        </>
+      }
+      popover={
+        <>
       {/* Slash command menu */}
       {showSlashMenu && filteredSlashItems.length > 0 && (
         <div className="absolute left-0 right-0 bottom-full mb-1 z-50">
@@ -458,67 +481,32 @@ export function ComposeBox({ onSend, placeholder = 'default', className }: Compo
         </div>
       )}
 
-      <div className="relative bg-bg-inset border border-border-default focus-within:border-border-strong rounded-lg p-3 flex flex-col gap-4 transition-colors">
-        {/* Editable area - left border when urgent or highlight */}
-        <div className={cn(
-          'relative min-h-[20px] transition-all',
-          hasUrgent && 'border-l-[4px] border-border-strong pl-2',
-          !hasUrgent && hasHighlight && 'border-l-[4px] border-border-strong pl-2'
-        )}>
-          <EditorContent editor={editor} />
-          {isEmpty && !hasHighlight && (
-            <div className="absolute inset-0 pointer-events-none flex items-center gap-1 text-sm text-text-muted leading-[1.4] flex-wrap">
-              {placeholder === 'reply' ? (
-                <span>Reply...</span>
-              ) : (
-                <>
-                  <span>Start a new conversation or type</span>
-                  <kbd className="inline-flex items-center border border-border-strong rounded-sm px-1 py-[1px] text-[12px] text-text-secondary leading-[1.2]">
-                    /
-                  </kbd>
-                  <span>for commands</span>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Toolbar */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            <IconButton tooltip="Attach file" aria-label="Attach file">
-              <IconPaperclip size={16} stroke={1.5} />
-            </IconButton>
-            <IconButton tooltip="Snooze" aria-label="Snooze">
-              <IconSquareForbid2 size={16} stroke={1.5} />
-            </IconButton>
-            <IconButton
-              aria-label="Highlight"
-              tooltip="Mark as Highlight"
-              onClick={() => setShowHighlightPicker((v) => !v)}
-            >
-              <IconHighlight size={16} stroke={1.5} />
-            </IconButton>
-          </div>
-
-          <button
-            onMouseDown={(e) => {
-              e.preventDefault()
-              handleSend()
-            }}
-            disabled={isEmpty}
-            aria-label="Send"
-            className={cn(
-              'flex items-center justify-center p-1 rounded-lg transition-colors',
-              !isEmpty
-                ? 'bg-accent-primary hover:bg-accent-hover text-text-inverse cursor-pointer'
-                : 'bg-bg-disabled text-text-disabled pointer-events-none'
+        </>
+      }
+    >
+      {/* Editable area - left border when urgent or highlight */}
+      <div className={cn(
+        'relative min-h-[20px] transition-all',
+        hasUrgent && 'border-l-[4px] border-border-strong pl-2',
+        !hasUrgent && hasHighlight && 'border-l-[4px] border-border-strong pl-2'
+      )}>
+        <EditorContent editor={editor} />
+        {isEmpty && !hasHighlight && (
+          <div className="absolute inset-0 pointer-events-none flex items-center gap-1 text-sm text-text-muted leading-[1.4] flex-wrap">
+            {placeholder === 'reply' ? (
+              <span>Reply...</span>
+            ) : (
+              <>
+                <span>Start a new conversation or type</span>
+                <kbd className="inline-flex items-center border border-border-strong rounded-sm px-1 py-[1px] text-[12px] text-text-secondary leading-[1.2]">
+                  /
+                </kbd>
+                <span>for commands</span>
+              </>
             )}
-          >
-            <IconArrowUp size={16} stroke={1.5} />
-          </button>
-        </div>
+          </div>
+        )}
       </div>
-    </div>
+    </Composer>
   )
 }
