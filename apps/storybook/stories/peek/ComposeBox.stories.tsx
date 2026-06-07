@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { ComposeBox } from '@/components/ui/ComposeBox'
+import { HuddleComposer } from '@/components/ui/HuddleComposer'
 import { withPeekProviders } from './_peekProviders'
 
 /**
@@ -25,4 +26,13 @@ export const Default: Story = {
 
 export const ReplyPlaceholder: Story = {
   args: { onSend: () => {}, placeholder: 'reply' },
+}
+
+/**
+ * V3 huddle-creation variant: a "To:" recipient picker + an attached ComposeBox for the
+ * first message. Type a name in the To: field to see suggestions; add someone to reveal the
+ * composer (it shows the "add a person" hint until then).
+ */
+export const HuddleCreation: Story = {
+  render: () => <HuddleComposer onSend={() => {}} onCancel={() => {}} />,
 }

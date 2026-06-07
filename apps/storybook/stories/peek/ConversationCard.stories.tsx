@@ -63,6 +63,13 @@ export const AsTopic: Story = {
   args: { isTopic: true, topicTitle: 'CI/CD pipeline stuck on build', replyCount: 5 },
 }
 
+export const HuddleAnchor: Story = {
+  args: {
+    huddleContext: { topicId: '1', topicTitle: 'CI/CD pipeline stuck on build', topicResolved: false },
+    body: 'Quick private check before I post to the main thread.',
+  },
+}
+
 export const Selected: Story = {
   args: { isSelected: true, replyCount: 2 },
 }
