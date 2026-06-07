@@ -10,6 +10,10 @@ const meta = {
   tags: ['autodocs'],
   args: { avatars: AVATARS.slice(0, 3), size: 24 },
   parameters: { layout: 'padded' },
+  // The 2px `borderClass` is a SEPARATOR RING meant to match the surface behind the stack
+  // (default border-bg-surface). Render on bg-bg-surface — as in Peek — so it blends and the
+  // avatars read as seamlessly overlapping, instead of looking like errant spacing on bg-base.
+  decorators: [(Story) => <div className="bg-bg-surface rounded-lg p-4 inline-block"><Story /></div>],
 } satisfies Meta<typeof AvatarStack>
 
 export default meta

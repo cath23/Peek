@@ -12,7 +12,9 @@ const meta = {
 
 export default meta
 
-const AVATAR = (n: number) => <Avatar size={20} src={`https://i.pravatar.cc/100?img=${n}`} className="rounded-full" />
+// Peek renders row/list avatars with the Avatar default radius (rounded-sm squircle),
+// NOT rounded-full — see TopicState's DM avatar. Match that here.
+const AVATAR = (n: number) => <Avatar size={20} src={`https://i.pravatar.cc/100?img=${n}`} />
 
 export const Default = {
   render: () => (

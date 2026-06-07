@@ -2,7 +2,8 @@ import { type ReactNode } from 'react'
 import { IconStar, IconStarFilled, IconDotsVertical, IconLockPlus, IconLock } from '@tabler/icons-react'
 import { TopicState } from './ui/TopicState'
 import { Avatar } from './ui/Avatar'
-import { IconButton, cn } from '@nostr-for-business/ui'
+import { AvatarStack, IconButton, cn } from '@nostr-for-business/ui'
+import { avatarFor } from '@/data/peopleData'
 
 interface ConversationHeaderProps {
   avatarSrc?: string
@@ -25,23 +26,6 @@ interface ConversationHeaderProps {
   onStartHuddle?: () => void
   tabs?: ReactNode
   className?: string
-}
-
-/** Up to 3 overlapping 24px avatars with border-bg-surface outline - matches Figma members component */
-function AvatarGroup({ members }: { members: string[] }) {
-  const visible = members.slice(0, 3)
-  return (
-    <div className="flex items-center pr-2">
-      {visible.map((name, i) => (
-        <div
-          key={i}
-          className="-mr-2 relative shrink-0 size-6 rounded-sm overflow-hidden border-2 border-bg-surface"
-        >
-          <Avatar size={24} name={name} alt={name} />
-        </div>
-      ))}
-    </div>
-  )
 }
 
 export function ConversationHeader({
@@ -102,7 +86,12 @@ export function ConversationHeader({
           {/* Members pill — shown for both topic mode and huddle mode */}
           {(topicMode || huddleMode) && !hideTopicMeta && members.length > 0 && (
             <div className="bg-bg-elevated border border-border-default rounded-sm flex gap-2 items-center pl-[2px] pr-2 py-[2px]">
-              <AvatarGroup members={members} />
+              <AvatarStack
+                avatars={members.slice(0, 3).map((name) => ({ src: avatarFor(name), alt: name }))}
+                max={3}
+                overflow={false}
+                borderClass="border-bg-surface"
+              />
               <span className="text-caption text-text-secondary">{members.length}</span>
             </div>
           )}
