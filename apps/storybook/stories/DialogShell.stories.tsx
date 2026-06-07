@@ -3,7 +3,7 @@ import type { Meta } from '@storybook/react-vite'
 import { DialogShell, Button } from '@nostr-for-business/ui'
 
 const meta = {
-  title: 'Shells/DialogShell',
+  title: 'Overlays/DialogShell',
   component: DialogShell,
   tags: ['autodocs'],
 } satisfies Meta<typeof DialogShell>

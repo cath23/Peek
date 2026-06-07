@@ -3,7 +3,7 @@ import type { Meta } from '@storybook/react-vite'
 import { TextInput, TextArea, InputLabel } from '@nostr-for-business/ui'
 
 const meta = {
-  title: 'Primitives/Inputs',
+  title: 'Inputs/Text fields',
   parameters: { layout: 'padded' },
 } satisfies Meta
 

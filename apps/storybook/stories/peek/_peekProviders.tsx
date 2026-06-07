@@ -1,12 +1,11 @@
 import type { Decorator } from '@storybook/react-vite'
 import { MemoryRouter } from 'react-router-dom'
-import { ThemeProvider } from '@nostr-for-business/ui'
+import { ThemeProvider, ToastProvider } from '@nostr-for-business/ui'
 import { DebugProvider } from '@/lib/debug'
 import { StarredProvider } from '@/lib/starred'
 import { TopicStoreProvider } from '@/lib/topicStore'
 import { TopicMutationsProvider } from '@/lib/topicMutations'
 import { LastSelectionProvider } from '@/lib/lastSelection'
-import { ToastProvider } from '@/lib/toast'
 
 /**
  * Wraps a Peek story in the same provider tree as the app (main.tsx), but with a

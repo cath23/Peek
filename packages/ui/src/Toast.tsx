@@ -1,11 +1,11 @@
 import { createContext, useContext, useState, useCallback, useMemo, useEffect, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { IconCircleCheck } from '@tabler/icons-react'
-import { cn } from '@nostr-for-business/ui'
+import { cn } from './lib/cn'
 
-type ToastType = 'success' | 'brand' | 'neutral'
+export type ToastType = 'success' | 'brand' | 'neutral'
 
-interface ToastOptions {
+export interface ToastOptions {
   label: string
   /** Visual variant per Figma (Alert component): success, brand, or neutral. Defaults to 'success'. */
   type?: ToastType

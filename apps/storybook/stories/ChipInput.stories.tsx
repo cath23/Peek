@@ -3,7 +3,7 @@ import type { Meta } from '@storybook/react-vite'
 import { ChipInput, Avatar } from '@nostr-for-business/ui'
 
 const meta = {
-  title: 'Shells/ChipInput',
+  title: 'Inputs/ChipInput',
   component: ChipInput,
   tags: ['autodocs'],
 } satisfies Meta<typeof ChipInput>

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import { SearchInput } from '@nostr-for-business/ui'
 
 const meta = {
-  title: 'Primitives/SearchInput',
+  title: 'Inputs/SearchInput',
   component: SearchInput,
   tags: ['autodocs'],
   args: { className: 'w-[290px]' },

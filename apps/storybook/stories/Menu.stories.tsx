@@ -3,7 +3,7 @@ import { Menu, MenuItem, MenuSection, Divider } from '@nostr-for-business/ui'
 import { IconCircleCheck, IconCircleDashed, IconPlus } from '@tabler/icons-react'
 
 const meta = {
-  title: 'Shells/Menu',
+  title: 'Overlays/Menu',
   component: Menu,
   tags: ['autodocs'],
 } satisfies Meta<typeof Menu>

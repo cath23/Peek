@@ -6,7 +6,7 @@ import {
 import { IconX, IconPaperclip } from '@tabler/icons-react'
 
 const meta = {
-  title: 'Shells/SidePanel',
+  title: 'Layout/SidePanel',
   component: SidePanel,
   tags: ['autodocs'],
 } satisfies Meta<typeof SidePanel>

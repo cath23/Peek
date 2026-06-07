@@ -4,7 +4,7 @@ import { Composer, IconButton } from '@nostr-for-business/ui'
 import { IconPaperclip, IconMoodSmile } from '@tabler/icons-react'
 
 const meta = {
-  title: 'Shells/Composer',
+  title: 'Inputs/Composer',
   component: Composer,
   tags: ['autodocs'],
 } satisfies Meta<typeof Composer>

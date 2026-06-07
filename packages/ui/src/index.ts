@@ -3,6 +3,8 @@
 export { cn } from './lib/cn'
 export { ThemeProvider, useTheme, type Theme } from './theme'
 
+export { ToastProvider, useToast, type ToastOptions, type ToastType } from './Toast'
+
 // Hooks
 export { useDismiss } from './useDismiss'
 export { usePopover } from './usePopover'
