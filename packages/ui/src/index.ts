@@ -5,6 +5,7 @@ export { ThemeProvider, useTheme, type Theme } from './theme'
 
 // Primitives
 export { Avatar } from './Avatar'
+export { AvatarStack } from './AvatarStack'
 export { Button } from './Button'
 export { Chip } from './Chip'
 export { Divider } from './Divider'
