@@ -8,6 +8,9 @@ dist-ssr/
 # Turborepo
 .turbo/
 
+# Storybook build output
+storybook-static/
+
 # Logs
 *.log
 npm-debug.log*
