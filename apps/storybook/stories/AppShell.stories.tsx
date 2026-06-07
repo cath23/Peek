@@ -1,7 +1,7 @@
 import type { Meta } from '@storybook/react-vite'
 import {
   AppShell, IconButton, SearchInput, PanelHeader, EmptyState,
-  SidePanel, SidePanelHeader,
+  SidePanel, SidePanelHeader, NavRail, NavItem,
 } from '@nostr-for-business/ui'
 import {
   IconLayoutSidebar, IconHome, IconUsers, IconHash, IconInbox, IconX,
@@ -31,14 +31,14 @@ function TopBar({ toggleCollapsed }: { collapsed: boolean; toggleCollapsed: () =
   )
 }
 
-/** Left nav rail (side menu) — generic vertical icon menu, mirrors Peek's NavRail shape. */
-function NavRail() {
+/** Left nav rail (side menu) — the shared NavRail/NavItem. */
+function SideNav() {
   return (
-    <nav className="w-16 h-full flex flex-col items-center gap-1 pt-3">
-      {[IconHome, IconHash, IconUsers].map((Icon, i) => (
-        <IconButton key={i} aria-label="Nav item"><Icon size={16} stroke={1.5} /></IconButton>
-      ))}
-    </nav>
+    <NavRail>
+      <NavItem icon={<IconHome size={16} stroke={1.5} />} label="Home" active />
+      <NavItem icon={<IconHash size={16} stroke={1.5} />} label="Topics" />
+      <NavItem icon={<IconUsers size={16} stroke={1.5} />} label="People" />
+    </NavRail>
   )
 }
 
@@ -86,7 +86,7 @@ export const Default = {
   render: () => (
     <AppShell
       topBar={(api) => <TopBar {...api} />}
-      navRail={<NavRail />}
+      navRail={<SideNav />}
       leftPanel={<LeftColumn />}
       rightPanel={<MainColumn />}
       threadPanel={<RightPanel />}
@@ -99,7 +99,7 @@ export const TwoColumn = {
   render: () => (
     <AppShell
       topBar={(api) => <TopBar {...api} />}
-      navRail={<NavRail />}
+      navRail={<SideNav />}
       leftPanel={<LeftColumn />}
       rightPanel={<MainColumn />}
     />
