@@ -5,6 +5,7 @@ export { ThemeProvider, useTheme, type Theme } from './theme'
 
 // Hooks
 export { useDismiss } from './useDismiss'
+export { usePopover } from './usePopover'
 
 // Primitives
 export { Avatar } from './Avatar'

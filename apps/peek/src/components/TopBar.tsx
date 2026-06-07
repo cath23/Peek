@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { IconMenu2, IconHelpCircle, IconSun, IconMoon, IconDeviceDesktop, IconCheck } from '@tabler/icons-react'
-import { IconButton, SearchInput, useDismiss, type Theme, useTheme } from '@nostr-for-business/ui'
+import { IconButton, SearchInput, useDismiss, usePopover, type Theme, useTheme } from '@nostr-for-business/ui'
 import { Avatar } from './ui/Avatar'
 import { DebugMenu } from './DebugMenu'
 import avatarSrc from '@/assets/avatar.png'
@@ -27,8 +27,8 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
   // Close theme menu on outside click
   useDismiss({ enabled: menuOpen, onDismiss: () => setMenuOpen(false), ignore: [menuRef, avatarRef] })
 
-  // Position the menu below the avatar
-  const rect = avatarRef.current?.getBoundingClientRect()
+  // Position the theme menu below the avatar
+  const menuStyle = usePopover(avatarRef, menuOpen, { gap: 6, zIndex: 50 })
 
   return (
     <div className="absolute top-0 left-0 right-0 h-[52px] flex items-center pl-5 pr-[26px] z-10 pointer-events-none">
@@ -66,11 +66,11 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
       </div>
 
       {/* Theme menu */}
-      {menuOpen && rect && createPortal(
+      {menuOpen && menuStyle && createPortal(
         <div
           ref={menuRef}
-          className="fixed z-50 bg-bg-elevated border border-border-default rounded-lg shadow-lg p-1"
-          style={{ top: rect.bottom + 6, right: window.innerWidth - rect.right }}
+          className="bg-bg-elevated border border-border-default rounded-lg shadow-lg p-1"
+          style={menuStyle}
         >
           <div className="flex items-center h-7 px-3">
             <span className="text-[12px] font-medium leading-none text-text-secondary">Theme</span>

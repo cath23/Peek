@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useDebug } from '@/lib/debug'
-import { cn, useDismiss } from '@nostr-for-business/ui'
+import { cn, useDismiss, usePopover } from '@nostr-for-business/ui'
 
 interface DebugMenuProps {
   anchorEl: HTMLElement | null
@@ -13,19 +13,14 @@ export function DebugMenu({ anchorEl, onClose }: DebugMenuProps) {
   const { state, setDesk, setUnreads, setHuddles } = useDebug()
 
   useDismiss({ onDismiss: onClose, ignore: [ref, anchorEl], escape: true })
+  const popoverStyle = usePopover(anchorEl, anchorEl != null, { gap: 6 })
 
-  if (!anchorEl) return null
-  const rect = anchorEl.getBoundingClientRect()
+  if (!anchorEl || !popoverStyle) return null
 
   return createPortal(
     <div
       ref={ref}
-      style={{
-        position: 'fixed',
-        top: rect.bottom + 6,
-        right: window.innerWidth - rect.right,
-        zIndex: 50,
-      }}
+      style={popoverStyle}
       className="w-[300px] bg-bg-elevated border border-border-default rounded-lg shadow-lg p-2 flex flex-col gap-1"
     >
       <DebugSection title="Desk">
