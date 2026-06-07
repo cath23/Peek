@@ -288,6 +288,25 @@ duplicated in the app. `.gitattributes` added (LF normalization).
 - CSF3 + autodocs stories for all current exports (primitives + shells). `storybook build`
   and `storybook dev` both verified.
 
+**Phase 4c — Peek/ section (Storybook now catalogs Peek's own components too):**
+The global library lives under `Primitives/` + `Shells/`; Peek-specific (non-reusable)
+components live under `Peek/*` in `apps/storybook/stories/peek/`. Wiring:
+- `main.ts` `viteFinal`: alias `@` → `apps/peek/src` (same alias the app uses) and dedupe
+  `react`/`react-dom`/`react-router-dom`/`react-router` so Peek components share ONE React +
+  Router instance with the story decorator (avoids "invalid hook call" / Router-context errors).
+- `peek` added as a storybook workspace dep; Tailwind content extended to `apps/peek/src`.
+- `withPeekProviders` decorator (`stories/peek/_peekProviders.tsx`) mirrors `main.tsx`'s
+  provider tree with a `MemoryRouter` (starts at `/topics`).
+- Stories: Chrome (NavItem/NavRail/TopBar), ConversationCard, ThreadReplyCard, HuddleCard,
+  Menus (Quick/More/Topic/Mention/Files/Debug), Dialogs, Atoms (TopicState/HighlightPill/
+  ReactionPicker/PersonRow), ConversationHeader, Sections (Screener/Starred), ComposeBox,
+  ThreadPanel. **Every storyable Peek component is now in Storybook.**
+- `storybook build` is transpile-only — added a `typecheck` script (`tsc --noEmit`) +
+  `@`-path alias + `vite/client` types to the storybook tsconfig so prop-type mismatches in
+  stories are caught (it already caught ThreadPanel's required `onClose`/`onSendReply`).
+- Convention going forward: a component in `@nostr-for-business/ui` → `Primitives`/`Shells`;
+  a Peek-only component → `Peek/*`. Keep global story *content* app-agnostic.
+
 **Phase 4b — UI gaps surfaced by Storybook (candidates to add to `packages/ui`):**
 Building stories made these missing/inlined primitives obvious. Most are currently inlined
 in dialogs/menus and are needed by Kanban too.
