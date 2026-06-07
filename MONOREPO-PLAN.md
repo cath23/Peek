@@ -281,8 +281,26 @@ duplicated in the app. `.gitattributes` added (LF normalization).
   DebugMenu, TopicMenu, FilesMenu) — incremental cleanup, do opportunistically.
 - hooks `usePopover` / `useDismiss` — extract when a 2nd consumer appears (Kanban).
 
-### Phase 4 — Storybook app (see §5 for detail)
-- New `apps/storybook`, wired to the shared preset + theme, stories for every ui component.
+### Phase 4 — Storybook app ✅ DONE (`1cb8ffb`)
+- `apps/storybook`: Storybook 10 + react-vite (Vite 8 / React 19 compatible).
+- Shares the Tailwind preset + tokens CSS; `preview.tsx` imports base.css + themes/peek.css
+  and adds a dark/light theme toolbar (toggles `.dark`). Content glob scans `packages/ui/src`.
+- CSF3 + autodocs stories for all current exports (primitives + shells). `storybook build`
+  and `storybook dev` both verified.
+
+**Phase 4b — UI gaps surfaced by Storybook (candidates to add to `packages/ui`):**
+Building stories made these missing/inlined primitives obvious. Most are currently inlined
+in dialogs/menus and are needed by Kanban too:
+- `TextInput` + `TextArea` — dialogs use raw `<input>`/`<textarea>` (Figma has both).
+- `InputLabel` — dialogs use raw `<label>` (Figma has required/optional variants).
+- `ShortcutBadge` / `KeyboardHint` — the `<kbd>` chip is inlined in SearchInput, Menu, Composer.
+- `Badge` / `Pill` — generic base under HighlightPill (Chip covers some, but not the pill).
+- `AvatarStack` — from Peek's MemberAvatars (overlapping avatars + count).
+- `UnreadIndicator` — the dot (default/urgent).
+- `BrandIcon` (AppIcon: github/figma/linear) — reusable by Kanban integrations.
+- `ListRow` — generic avatar+title+subtitle+trailing row (under PersonRow / menu rows).
+- `usePopover` / `useDismiss` hooks — dropdown positioning + outside-click/Escape.
+Decide per item whether to extract now (cleaner) or when Kanban needs it.
 
 ### Phase 5 — Kanban app (blue)
 1. `apps/kanban` — fresh Vite + React + TS app.
