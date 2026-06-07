@@ -20,11 +20,10 @@ import {
   IconTable,
   IconPresentation,
   IconX,
-  IconAlertSquareRounded,
 } from '@tabler/icons-react'
 import figmaIcon from '@/assets/figma icon.svg'
 import linearIcon from '@/assets/linear icon.svg'
-import { Divider, IconButton, Reaction as ReactionPill, cn } from '@nostr-for-business/ui'
+import { Divider, IconButton, Reaction as ReactionPill, UnreadIndicator, cn } from '@nostr-for-business/ui'
 import { Avatar } from './ui/Avatar'
 import ReactionPicker from './ReactionPicker'
 import { PEOPLE } from '@/data/peopleData'
@@ -611,16 +610,9 @@ export function ThreadReplyCard({
                 <span className="text-caption text-text-muted whitespace-nowrap">{timestamp}</span>
                 {highlightState && <HighlightPill type={highlightState} />}
               </div>
-              {isNew && !isUrgent && (
+              {isNew && (
                 <div className="w-6 h-6 flex items-center justify-center shrink-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-accent-primary" />
-                </div>
-              )}
-              {isNew && isUrgent && (
-                <div className="w-6 h-6 flex items-center justify-center shrink-0">
-                  <div className="flex items-center p-0.5 rounded-full bg-warning-muted">
-                    <IconAlertSquareRounded size={12} stroke={2.5} className="text-warning-default" />
-                  </div>
+                  <UnreadIndicator urgent={isUrgent} />
                 </div>
               )}
             </div>

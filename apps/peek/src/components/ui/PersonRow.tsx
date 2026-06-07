@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { IconDotsVertical, IconAlertSquareRounded, IconX } from '@tabler/icons-react'
+import { IconDotsVertical, IconX } from '@tabler/icons-react'
 import { TopicState, type TopicStateType, type TopicStateStatus } from './TopicState'
-import { IconButton, cn } from '@nostr-for-business/ui'
+import { IconButton, UnreadIndicator, cn } from '@nostr-for-business/ui'
 import { avatarFor } from '@/data/peopleData'
 
 interface PersonRowProps {
@@ -89,15 +89,9 @@ export function PersonRow({
             </IconButton>
           )}
         </div>
-      ) : isUrgent && isUnread ? (
-        <div className="w-6 h-6 flex items-center justify-center shrink-0">
-          <div className="flex items-center p-0.5 rounded-full bg-warning-muted">
-            <IconAlertSquareRounded size={12} stroke={2.5} className="text-warning-default" />
-          </div>
-        </div>
       ) : isUnread ? (
         <div className="w-6 h-6 flex items-center justify-center shrink-0">
-          <div className="w-1.5 h-1.5 rounded-full bg-accent-primary" />
+          <UnreadIndicator urgent={isUrgent} />
         </div>
       ) : null}
     </div>
