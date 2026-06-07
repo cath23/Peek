@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { AppShell } from '@/layouts/AppShell'
-import { ContainerHeader } from '@/components/ContainerHeader'
+import { PanelHeader } from '@nostr-for-business/ui'
 import { PersonRow } from '@/components/ui/PersonRow'
 import { useTopicView } from '@/components/views/useTopicView'
 import { topicHasUnread } from '@/data/topicData'
@@ -69,7 +69,7 @@ export function TopicsPage() {
     <AppShell
       leftPanel={
         <div className="flex flex-col h-full">
-          <ContainerHeader
+          <PanelHeader
             title="All topics"
             chevron
             prop2ndAction

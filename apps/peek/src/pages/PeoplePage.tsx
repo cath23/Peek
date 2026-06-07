@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { AppShell } from '@/layouts/AppShell'
-import { ContainerHeader } from '@/components/ContainerHeader'
 import { PersonRow } from '@/components/ui/PersonRow'
-import { Divider, SectionHeader } from '@nostr-for-business/ui'
+import { Divider, SectionHeader, PanelHeader } from '@nostr-for-business/ui'
 import { StarredSection, type StarredItem } from '@/components/ui/StarredSection'
 import { useDmConversationView } from '@/components/views/useDmConversationView'
 import { useStarred } from '@/lib/starred'
@@ -113,7 +112,7 @@ export function PeoplePage() {
     <AppShell
       leftPanel={
         <div className="flex flex-col h-full">
-          <ContainerHeader
+          <PanelHeader
             title="People"
             prop1stAction
             prop1stActionTooltip="New conversation"

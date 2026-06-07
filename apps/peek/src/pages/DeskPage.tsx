@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { IconChevronRight, IconPlus, IconSortDescending } from '@tabler/icons-react'
 import { AppShell } from '@/layouts/AppShell'
-import { ContainerHeader } from '@/components/ContainerHeader'
-import { Divider, IconButton, cn } from '@nostr-for-business/ui'
+import { Divider, IconButton, PanelHeader, cn } from '@nostr-for-business/ui'
 import { PersonRow } from '@/components/ui/PersonRow'
 import { ScreenerSection } from '@/components/ScreenerSection'
 import { useDmConversationView } from '@/components/views/useDmConversationView'
@@ -168,7 +167,7 @@ export function DeskPage() {
     <AppShell
       leftPanel={
         <div className="flex flex-col h-full">
-          <ContainerHeader title="Desk" />
+          <PanelHeader title="Desk" />
           <div className="flex-1 overflow-y-auto pt-4 pb-3 px-3 flex flex-col gap-1">
             {/* Screener - only shows when toggled on AND has items */}
             {debug.desk.showScreener && screenerItems.length > 0 && (

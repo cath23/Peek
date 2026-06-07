@@ -4,10 +4,11 @@ import {
   IconSortDescending,
   IconEdit,
 } from '@tabler/icons-react'
-import { IconButton, cn } from '@nostr-for-business/ui'
+import { IconButton } from './IconButton'
+import { cn } from './lib/cn'
 import { type ReactNode } from 'react'
 
-interface ContainerHeaderProps {
+interface PanelHeaderProps {
   title: string
   chevron?: boolean
   leadingIcon?: boolean
@@ -25,7 +26,7 @@ interface ContainerHeaderProps {
   className?: string
 }
 
-export function ContainerHeader({
+export function PanelHeader({
   title,
   chevron = false,
   leadingIcon = false,
@@ -37,7 +38,7 @@ export function ContainerHeader({
   prop3rdAction = false,
   prop3rdActionTooltip,
   className,
-}: ContainerHeaderProps) {
+}: PanelHeaderProps) {
   const hasRightContent = more || prop1stAction || prop2ndAction || prop3rdAction
 
   return (
