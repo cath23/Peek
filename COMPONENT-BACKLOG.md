@@ -23,17 +23,21 @@ Legend: **High/Med/Low** = priority · "Source" = where the markup is inlined to
 > in a `cn()` call. See memory `feedback_twmerge_text_classes`.
 
 ### Better validated by Kanban (extract when a 2nd consumer needs them)
-- [ ] **AvatarStack** — from `MemberAvatars` (HuddleCard) + member pill (ThreadPanel). Kanban assignee stack. Med.
-- [ ] **UnreadIndicator** — notification dot (default/urgent), inline in cards. Kanban status dots. Med.
-- [ ] **ListRow** — generic avatar+title+subtitle+trailing row, under PersonRow / MentionMenuRow / FilesResultRow. Med.
+- [x] **AvatarStack** — DONE. In ui + story; **verified pixel-identical to MemberAvatars** via a Peek/ side-by-side. NOT yet re-adopted in Peek (reverted after a fidelity scare; re-adoption staged, pending a visual glance at the -mr-2 pill variant).
+- [x] **UnreadIndicator** — DONE. In ui + story; byte-identical dot/urgent-badge; adopted in PersonRow, ConversationCard, ThreadReplyCard.
+- [x] **ListRow** — DONE. In ui + story; PersonRow composes it (leading/title/subtitle/trailing render-prop with hover state).
 - [ ] **Badge / Pill** — generic base under HighlightPill (Chip overlaps). Low-Med.
 - [ ] **BrandIcon** — from `AppIcon` in FilesMenu (github/figma/linear). Low-Med.
 - [ ] **EmojiPicker** — from Peek `ReactionPicker` (generic emoji grid). Low-Med.
 - [ ] **IconContainer32** — icon wrapper box. Low.
 
 ### Hooks (high value — duplicated across menus)
-- [ ] **usePopover** — anchor + portal + auto-flip. Duplicated in: TopBar theme menu, DebugMenu, ConversationMoreMenu submenu, PersonChipInput dropdown, ComposeBox menus. High.
-- [ ] **useDismiss** — outside-click + Escape. Duplicated in: TopBar, ComposeBox highlight picker, others. High.
+- [x] **usePopover** — DONE. In ui + story (anchor + fixed right-align + optional flip). Adopted in TopBar theme menu + DebugMenu (no-flip). Flip-based card menus (ConversationCard/HuddleCard) deferred — need click-through verification.
+- [x] **useDismiss** — DONE. In ui + story (outside-click + optional Escape; ignore[] accepts refs or elements). Adopted in TopBar, ConversationCard, HuddleCard, DebugMenu.
+
+> ⚠️ The hook adoptions (useDismiss everywhere, usePopover in TopBar/DebugMenu) are faithful
+> 1:1 refactors but are NOT interaction-tested by the agent — **click-test the menus** (open,
+> click-outside, Escape, positioning) before relying on them.
 
 ---
 
