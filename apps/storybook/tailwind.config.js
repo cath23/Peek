@@ -9,5 +9,7 @@ export default {
     './.storybook/**/*.{ts,tsx}',
     // Scan the shared UI package so its classes are generated.
     '../../packages/ui/src/**/*.{ts,tsx}',
+    // Scan the Peek app so classes used only by Peek/* stories survive.
+    '../../apps/peek/src/**/*.{ts,tsx}',
   ],
 }
