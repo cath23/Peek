@@ -7,6 +7,9 @@
     "jsx": "react-jsx",
     "noEmit": true,
     "baseUrl": ".",
+    // Peek/* stories import Peek components via the same `@` alias the app uses
+    // (mirrors the alias set in .storybook/main.ts). `vite/client` supplies the
+    // ambient module declarations for Peek's `*.svg` / `*.png` asset imports.
     "paths": {
       "@/*": ["../../apps/peek/src/*"]
     }
