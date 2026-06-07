@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { IconMessage2, IconDotsVertical, IconLock } from '@tabler/icons-react'
 import { Avatar } from './ui/Avatar'
-import { Divider, IconButton, cn } from '@nostr-for-business/ui'
+import { Divider, IconButton, cn, useDismiss } from '@nostr-for-business/ui'
 import { REPLIES } from '@/data/replyData'
 import { useTopicMutations } from '@/lib/topicMutations'
 import type { Huddle } from '@/data/huddleData'
@@ -105,16 +105,11 @@ export function HuddleCard({
   }
 
   // Close menu on outside click
-  useEffect(() => {
-    if (!showMenu) return
-    const close = (e: MouseEvent) => {
-      if (menuRef.current?.contains(e.target as Node)) return
-      setShowMenu(false)
-      setMenuPos(null)
-    }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [showMenu])
+  useDismiss({
+    enabled: showMenu,
+    onDismiss: () => { setShowMenu(false); setMenuPos(null) },
+    ignore: [menuRef],
+  })
 
   // Single-line preview body for the inStream variant — strip newlines so the
   // truncate happens cleanly at the card's right edge.

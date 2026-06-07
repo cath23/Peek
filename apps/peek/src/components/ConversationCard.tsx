@@ -23,7 +23,7 @@ import {
 } from '@tabler/icons-react'
 import figmaIcon from '@/assets/figma icon.svg'
 import linearIcon from '@/assets/linear icon.svg'
-import { Button, Chip, IconButton, Reaction as ReactionPill, UnreadIndicator, cn } from '@nostr-for-business/ui'
+import { Button, Chip, IconButton, Reaction as ReactionPill, UnreadIndicator, useDismiss, cn } from '@nostr-for-business/ui'
 import { Avatar } from './ui/Avatar'
 import { TopicState } from './ui/TopicState'
 import { ConversationQuickMenu } from './ConversationQuickMenu'
@@ -369,16 +369,11 @@ export function ConversationCard({
   }, [isEditing, editEditor]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close more menu on click outside (the portal div stops propagation internally)
-  useEffect(() => {
-    if (!showMoreMenu) return
-    const close = (e: MouseEvent) => {
-      if (moreMenuRef.current?.contains(e.target as Node)) return
-      setShowMoreMenu(false)
-      setMoreMenuPos(null)
-    }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [showMoreMenu])
+  useDismiss({
+    enabled: showMoreMenu,
+    onDismiss: () => { setShowMoreMenu(false); setMoreMenuPos(null) },
+    ignore: [moreMenuRef],
+  })
 
   // Resolved state - sync from parent when prop changes
   const [resolved, setResolved] = useState(initialResolved)

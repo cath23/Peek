@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useDebug } from '@/lib/debug'
-import { cn } from '@nostr-for-business/ui'
+import { cn, useDismiss } from '@nostr-for-business/ui'
 
 interface DebugMenuProps {
   anchorEl: HTMLElement | null
@@ -12,22 +12,7 @@ export function DebugMenu({ anchorEl, onClose }: DebugMenuProps) {
   const ref = useRef<HTMLDivElement>(null)
   const { state, setDesk, setUnreads, setHuddles } = useDebug()
 
-  useEffect(() => {
-    const click = (e: MouseEvent) => {
-      if (ref.current?.contains(e.target as Node)) return
-      if (anchorEl?.contains(e.target as Node)) return
-      onClose()
-    }
-    const key = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('mousedown', click)
-    document.addEventListener('keydown', key)
-    return () => {
-      document.removeEventListener('mousedown', click)
-      document.removeEventListener('keydown', key)
-    }
-  }, [anchorEl, onClose])
+  useDismiss({ onDismiss: onClose, ignore: [ref, anchorEl], escape: true })
 
   if (!anchorEl) return null
   const rect = anchorEl.getBoundingClientRect()

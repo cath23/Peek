@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { IconMenu2, IconHelpCircle, IconSun, IconMoon, IconDeviceDesktop, IconCheck } from '@tabler/icons-react'
-import { IconButton, SearchInput, type Theme, useTheme } from '@nostr-for-business/ui'
+import { IconButton, SearchInput, useDismiss, type Theme, useTheme } from '@nostr-for-business/ui'
 import { Avatar } from './ui/Avatar'
 import { DebugMenu } from './DebugMenu'
 import avatarSrc from '@/assets/avatar.png'
@@ -25,16 +25,7 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
   const menuRef = useRef<HTMLDivElement>(null)
 
   // Close theme menu on outside click
-  useEffect(() => {
-    if (!menuOpen) return
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current?.contains(e.target as Node)) return
-      if (avatarRef.current?.contains(e.target as Node)) return
-      setMenuOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [menuOpen])
+  useDismiss({ enabled: menuOpen, onDismiss: () => setMenuOpen(false), ignore: [menuRef, avatarRef] })
 
   // Position the menu below the avatar
   const rect = avatarRef.current?.getBoundingClientRect()

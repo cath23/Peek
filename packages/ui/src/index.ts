@@ -3,6 +3,9 @@
 export { cn } from './lib/cn'
 export { ThemeProvider, useTheme, type Theme } from './theme'
 
+// Hooks
+export { useDismiss } from './useDismiss'
+
 // Primitives
 export { Avatar } from './Avatar'
 export { AvatarStack } from './AvatarStack'
