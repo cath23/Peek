@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { IconX, IconExternalLink, IconCircleDashed, IconCircleCheck, IconLock } from '@tabler/icons-react'
 import { Avatar } from './ui/Avatar'
-import { DateDivider, IconButton } from '@nostr-for-business/ui'
+import { DateDivider, IconButton, SidePanel, SidePanelHeader, SidePanelBody, SidePanelFooter } from '@nostr-for-business/ui'
 import { ThreadReplyCard } from './ThreadReplyCard'
 import { ComposeBox, type SendPayload } from './ui/ComposeBox'
 import type { ConversationData, HighlightType, ReactionData } from '@/data/topicData'
@@ -144,9 +144,9 @@ export function ThreadPanel({
   }, [allReplies.length])
 
   return (
-    <div className="flex flex-col h-full">
+    <SidePanel>
       {/* Header */}
-      <div className="h-12 shrink-0 flex items-center justify-between pl-5 pr-4 py-2 border-b border-border-subtle z-20 relative bg-bg-surface">
+      <SidePanelHeader>
         <div className="flex items-center gap-2">
           {huddleMemberCount != null && (
             <IconLock size={16} stroke={1.5} className="text-text-secondary" />
@@ -196,10 +196,10 @@ export function ThreadPanel({
             <IconX size={16} stroke={1.5} />
           </IconButton>
         </div>
-      </div>
+      </SidePanelHeader>
 
       {/* Scrollable content */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto flex flex-col">
+      <SidePanelBody ref={scrollRef}>
         {/* Initial message */}
         <div className="px-4 pt-4 pb-2">
           {huddleMemberCount != null ? (
@@ -310,12 +310,12 @@ export function ThreadPanel({
             />
           ))}
         </div>
-      </div>
+      </SidePanelBody>
 
       {/* Compose box */}
-      <div className="p-3">
+      <SidePanelFooter>
         <ComposeBox onSend={onSendReply} placeholder="reply" />
-      </div>
-    </div>
+      </SidePanelFooter>
+    </SidePanel>
   )
 }
