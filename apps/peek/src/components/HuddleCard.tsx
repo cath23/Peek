@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { IconMessage2, IconDotsVertical, IconLock } from '@tabler/icons-react'
-import { AvatarStack, Divider, IconButton, cn } from '@nostr-for-business/ui'
-import { avatarFor } from '@/data/peopleData'
+import { Avatar } from './ui/Avatar'
+import { Divider, IconButton, cn } from '@nostr-for-business/ui'
 import { REPLIES } from '@/data/replyData'
 import { useTopicMutations } from '@/lib/topicMutations'
 import type { Huddle } from '@/data/huddleData'
@@ -29,16 +29,23 @@ export function MemberAvatars({
   borderClass?: string
 }) {
   // If names are provided, render up to 4 of them with photo lookup; otherwise
-  // fall back to count-based placeholders for legacy callers. Pre-slice to 4 and
-  // disable overflow so the avatar stack matches the legacy (no "+N") rendering —
-  // the member count is already shown in the card's name label.
+  // fall back to count-based placeholders for legacy callers.
   const slots = members ? members.slice(0, 4) : Array.from({ length: Math.min(count ?? 0, 4) }, () => undefined)
   return (
-    <AvatarStack
-      avatars={slots.map((name) => ({ src: avatarFor(name), alt: name }))}
-      overflow={false}
-      borderClass={borderClass ?? 'border-bg-surface'}
-    />
+    <div className="flex items-center">
+      {slots.map((name, i) => (
+        <div
+          key={i}
+          className={cn(
+            'relative shrink-0 size-6 rounded-sm overflow-hidden border-2',
+            i > 0 && '-ml-2',
+            borderClass ?? 'border-bg-surface'
+          )}
+        >
+          <Avatar size={24} name={name} alt={name} />
+        </div>
+      ))}
+    </div>
   )
 }
 

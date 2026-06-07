@@ -2,8 +2,7 @@ import { useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { IconX, IconExternalLink, IconCircleDashed, IconCircleCheck, IconLock } from '@tabler/icons-react'
 import { Avatar } from './ui/Avatar'
-import { avatarFor } from '@/data/peopleData'
-import { AvatarStack, DateDivider, IconButton, SidePanel, SidePanelHeader, SidePanelBody, SidePanelFooter } from '@nostr-for-business/ui'
+import { DateDivider, IconButton, SidePanel, SidePanelHeader, SidePanelBody, SidePanelFooter } from '@nostr-for-business/ui'
 import { ThreadReplyCard } from './ThreadReplyCard'
 import { ComposeBox, type SendPayload } from './ui/ComposeBox'
 import type { ConversationData, HighlightType, ReactionData } from '@/data/topicData'
@@ -171,16 +170,19 @@ export function ThreadPanel({
             if (total === 0) return null
             return (
               <div className="bg-bg-elevated border border-border-default rounded-sm flex gap-2 items-center pl-[2px] pr-2 py-[2px]">
-                <AvatarStack
-                  avatars={
-                    members.length > 0
-                      ? members.slice(0, 3).map((name) => ({ src: avatarFor(name), alt: name }))
-                      : Array.from({ length: Math.min(total, 3) }, () => ({}))
-                  }
-                  max={3}
-                  overflow={false}
-                  borderClass="border-bg-elevated"
-                />
+                <div className="flex items-center pr-2">
+                  {(members.length > 0
+                    ? members.slice(0, 3).map((name, i) => ({ key: i, name }))
+                    : Array.from({ length: Math.min(total, 3) }, (_, i) => ({ key: i, name: undefined as string | undefined }))
+                  ).map(({ key, name }) => (
+                    <div
+                      key={key}
+                      className="-mr-2 relative shrink-0 size-6 rounded-sm overflow-hidden border-2 border-bg-elevated"
+                    >
+                      <Avatar size={24} name={name} alt={name} />
+                    </div>
+                  ))}
+                </div>
                 <span className="text-caption text-text-secondary">{total}</span>
               </div>
             )
