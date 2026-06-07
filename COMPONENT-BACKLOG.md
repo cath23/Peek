@@ -10,12 +10,17 @@ Legend: **High/Med/Low** = priority · "Source" = where the markup is inlined to
 
 ## A. 🌐 GLOBAL — add to `@nostr-for-business/ui`
 
-### Safe to do now (already inlined, clear API, used today)
-- [ ] **PanelHeader** — *move* `apps/peek/src/components/ContainerHeader.tsx` (already generic, zero domain coupling) → ui. Med.
-- [ ] **TextInput** — from raw `<input>` in CreateTopicDialog. Figma: TextInput (default/focus/filled). High.
-- [ ] **TextArea** — from raw `<textarea>` in ResolveDialog + CreateTopicDialog. Figma: TextArea. High.
-- [ ] **InputLabel** — from raw `<label>` in dialogs. Figma: InputLabel (required/optional). Med.
-- [ ] **ShortcutBadge** (a.k.a. KeyboardHint) — the `<kbd>` chip duplicated in SearchInput, MenuItem (shortcut), Composer, ConversationMoreMenu. Med (pure dedup).
+### Safe to do now (already inlined, clear API, used today) — ✅ ALL DONE
+- [x] **PanelHeader** — moved `ContainerHeader.tsx` → ui (git mv, 3 call sites repointed). Story added.
+- [x] **TextInput** — extracted from CreateTopicDialog; dialogs refactored. Story added.
+- [x] **TextArea** — extracted from ResolveDialog; dialogs refactored. Story added.
+- [x] **InputLabel** — extracted from dialogs (required/optional asterisk). Story added.
+- [x] **ShortcutBadge** — deduped the `<kbd>` chip across MenuItem, SearchInput, ComposeBox (slash hint + command list). Story added.
+
+> Note: font in the four input/badge primitives uses explicit arbitrary values
+> (`text-[14px]`, `text-[12px]`) instead of `text-body-2`/`text-caption`, because
+> tailwind-merge drops a custom `text-{name}` size when it sits beside `text-text-*`
+> in a `cn()` call. See memory `feedback_twmerge_text_classes`.
 
 ### Better validated by Kanban (extract when a 2nd consumer needs them)
 - [ ] **AvatarStack** — from `MemberAvatars` (HuddleCard) + member pill (ThreadPanel). Kanban assignee stack. Med.

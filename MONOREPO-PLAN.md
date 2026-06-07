@@ -290,17 +290,27 @@ duplicated in the app. `.gitattributes` added (LF normalization).
 
 **Phase 4b — UI gaps surfaced by Storybook (candidates to add to `packages/ui`):**
 Building stories made these missing/inlined primitives obvious. Most are currently inlined
-in dialogs/menus and are needed by Kanban too:
-- `TextInput` + `TextArea` — dialogs use raw `<input>`/`<textarea>` (Figma has both).
-- `InputLabel` — dialogs use raw `<label>` (Figma has required/optional variants).
-- `ShortcutBadge` / `KeyboardHint` — the `<kbd>` chip is inlined in SearchInput, Menu, Composer.
+in dialogs/menus and are needed by Kanban too.
+
+*Safe-now tier — ✅ DONE (`96abaed` PanelHeader, inputs, ShortcutBadge):*
+- [x] `PanelHeader` — moved from Peek's ContainerHeader (git mv, 3 call sites repointed).
+- [x] `TextInput` + `TextArea` — extracted from the dialogs; dialogs refactored.
+- [x] `InputLabel` — extracted from the dialogs (required/optional asterisk).
+- [x] `ShortcutBadge` — deduped the `<kbd>` chip across MenuItem, SearchInput, ComposeBox.
+- [x] Added Storybook stories for the above + the previously-missing `AppShell`, and a
+      `Chip` icons story. All 21 `packages/ui` exports now have stories.
+
+*Deferred until Kanban is a 2nd consumer (extract when its API is validated):*
 - `Badge` / `Pill` — generic base under HighlightPill (Chip covers some, but not the pill).
 - `AvatarStack` — from Peek's MemberAvatars (overlapping avatars + count).
 - `UnreadIndicator` — the dot (default/urgent).
 - `BrandIcon` (AppIcon: github/figma/linear) — reusable by Kanban integrations.
 - `ListRow` — generic avatar+title+subtitle+trailing row (under PersonRow / menu rows).
 - `usePopover` / `useDismiss` hooks — dropdown positioning + outside-click/Escape.
-Decide per item whether to extract now (cleaner) or when Kanban needs it.
+
+> tw-merge caveat: the four input/badge primitives set font via explicit arbitrary values
+> (`text-[14px]`, `text-[12px]`) — a custom `text-{name}` size gets dropped next to
+> `text-text-*` in `cn()`. See memory `feedback_twmerge_text_classes`.
 
 ### Phase 5 — Kanban app (blue)
 1. `apps/kanban` — fresh Vite + React + TS app.
