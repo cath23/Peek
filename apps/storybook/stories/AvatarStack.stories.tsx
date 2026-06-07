@@ -10,16 +10,25 @@ const meta = {
   tags: ['autodocs'],
   args: { avatars: AVATARS.slice(0, 3), size: 24 },
   parameters: { layout: 'padded' },
-  // The 2px `borderClass` is a SEPARATOR RING meant to match the surface behind the stack
-  // (default border-bg-surface). Render on bg-bg-surface — as in Peek — so it blends and the
-  // avatars read as seamlessly overlapping, instead of looking like errant spacing on bg-base.
-  decorators: [(Story) => <div className="bg-bg-surface rounded-lg p-4 inline-block"><Story /></div>],
+  // Render on bg-bg-surface (as in Peek's HuddleCard / members pill) so the default
+  // border-bg-surface separator ring blends and the avatars read as seamlessly overlapping.
+  decorators: [(Story) => <div className="bg-bg-surface rounded-lg p-3 inline-block"><Story /></div>],
 } satisfies Meta<typeof AvatarStack>
 
 export default meta
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}
+
+/** Peek's exact members-pill usage (ConversationHeader): stack + total count in an elevated pill. */
+export const MembersPill: Story = {
+  render: () => (
+    <div className="bg-bg-elevated border border-border-default rounded-sm flex gap-2 items-center pl-[2px] pr-2 py-[2px] w-fit">
+      <AvatarStack avatars={AVATARS.slice(0, 3)} overflow={false} borderClass="border-bg-surface" />
+      <span className="text-caption text-text-secondary">{AVATARS.length}</span>
+    </div>
+  ),
+}
 
 export const WithOverflow: Story = {
   args: { avatars: AVATARS, max: 4 },
