@@ -1,5 +1,6 @@
 import { type ReactNode, type HTMLAttributes } from 'react'
 import { cn } from './lib/cn'
+import { ShortcutBadge } from './ShortcutBadge'
 
 /** Menu surface — the elevated, bordered popover container. Width is supplied by the
  *  caller via className. Spreads remaining props (e.g. data-* attributes, refs). */
@@ -55,11 +56,7 @@ export function MenuItem({
       >
         {label}
       </span>
-      {shortcut && (
-        <kbd className="inline-flex items-center justify-center bg-bg-inset border border-border-strong rounded-sm px-1 py-[1px] text-caption text-text-secondary shrink-0">
-          {shortcut}
-        </kbd>
-      )}
+      {shortcut && <ShortcutBadge>{shortcut}</ShortcutBadge>}
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { cn } from './lib/cn'
 import { type InputHTMLAttributes } from 'react'
+import { ShortcutBadge } from './ShortcutBadge'
 
 interface SearchInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'className'> {
   shortcut?: string
@@ -26,11 +27,7 @@ export function SearchInput({
         placeholder={placeholder}
         {...props}
       />
-      {shortcut && (
-        <div className="flex items-center justify-center px-1 py-px rounded-sm bg-bg-inset border border-border-strong shrink-0">
-          <span className="text-caption text-text-secondary whitespace-nowrap">{shortcut}</span>
-        </div>
-      )}
+      {shortcut && <ShortcutBadge className="whitespace-nowrap">{shortcut}</ShortcutBadge>}
     </div>
   )
 }

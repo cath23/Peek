@@ -5,7 +5,7 @@ import { PeekMention, UrgentMention, TopicMention, FileMention, isSuggestionActi
 import { ResolutionBlock, extractResolution } from '@/extensions/resolution'
 import { HighlightTag, extractHighlightType } from '@/extensions/highlight'
 import { IconPaperclip, IconSquareForbid2, IconHighlight } from '@tabler/icons-react'
-import { Composer, IconButton, cn } from '@nostr-for-business/ui'
+import { Composer, IconButton, ShortcutBadge, cn } from '@nostr-for-business/ui'
 import { HighlightSwatch } from './HighlightPill'
 import { HIGHLIGHT_META, type HighlightType } from '@/data/topicData'
 
@@ -447,9 +447,7 @@ export function ComposeBox({ onSend, placeholder = 'default', className }: Compo
                       }}
                     >
                       <span className="flex-1 text-sm text-text-secondary">{item.label}</span>
-                      <kbd className="inline-flex items-center justify-center bg-bg-inset border border-border-strong rounded-sm px-1 py-[1px] text-[11px] text-text-secondary leading-[1.2] min-w-[18px] shrink-0">
-                        {item.trigger}
-                      </kbd>
+                      <ShortcutBadge className="text-[11px] min-w-[18px]">{item.trigger}</ShortcutBadge>
                     </div>
                   )
                 })}
@@ -498,9 +496,7 @@ export function ComposeBox({ onSend, placeholder = 'default', className }: Compo
             ) : (
               <>
                 <span>Start a new conversation or type</span>
-                <kbd className="inline-flex items-center border border-border-strong rounded-sm px-1 py-[1px] text-[12px] text-text-secondary leading-[1.2]">
-                  /
-                </kbd>
+                <ShortcutBadge className="bg-transparent">/</ShortcutBadge>
                 <span>for commands</span>
               </>
             )}
