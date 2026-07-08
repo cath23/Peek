@@ -2,7 +2,10 @@ import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import { TopBar } from '@/components/TopBar'
 import { NavRail } from '@/components/NavRail'
 import { CommandLauncher } from '@/components/CommandLauncher'
+import { ComposerAssist } from '@/components/ComposerAssist'
 import { captureLauncherContext, type LauncherContext } from '@/lib/launcherContext'
+import { onAppQuery, setIntelligenceEnabled, type AppQueryRequest } from '@/lib/intelligenceBridge'
+import { useDebug } from '@/lib/debug'
 
 interface AppShellProps {
   leftPanel?: ReactNode
@@ -13,11 +16,29 @@ interface AppShellProps {
 export function AppShell({ leftPanel, rightPanel, threadPanel }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false)
   // The launcher's context is captured ONCE at the invoking keystroke/click
-  // (selection > composer > nothing) and frozen for the launcher's lifetime.
-  const [launcher, setLauncher] = useState<{ context: LauncherContext; initialQuery?: string } | null>(null)
+  // (composer selection > composer > nothing) and frozen for its lifetime.
+  const [launcher, setLauncher] = useState<{
+    context: LauncherContext
+    initialQuery?: string
+    appQuery?: AppQueryRequest
+  } | null>(null)
+  const { state: debug } = useDebug()
+  const intelligenceOn = debug.intelligence.enabled
+
+  // Mirror the debug flag into the module-level bridge so non-React code
+  // (the @ menu's suggestion plugin) can read it.
+  useEffect(() => {
+    setIntelligenceEnabled(intelligenceOn)
+  }, [intelligenceOn])
 
   const openLauncher = useCallback((initialQuery?: string) => {
     setLauncher({ context: captureLauncherContext(), initialQuery })
+  }, [])
+
+  // @App tokens in composers open the launcher pre-scoped to the app.
+  useEffect(() => {
+    onAppQuery((req) => setLauncher({ context: captureLauncherContext(), appQuery: req }))
+    return () => onAppQuery(null)
   }, [])
 
   // Cmd/Ctrl+K opens the launcher from anywhere - browsing or typing in a
@@ -75,10 +96,12 @@ export function AppShell({ leftPanel, rightPanel, threadPanel }: AppShellProps) 
         </div>
       </div>
 
+      {intelligenceOn && <ComposerAssist onLaunch={() => openLauncher()} />}
       {launcher && (
         <CommandLauncher
           context={launcher.context}
           initialQuery={launcher.initialQuery}
+          appQuery={launcher.appQuery}
           onClose={() => setLauncher(null)}
         />
       )}
