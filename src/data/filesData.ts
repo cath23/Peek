@@ -1,3 +1,6 @@
+import { FIGMA_FRAMES } from './figmaData'
+import { LINEAR_ISSUES } from './linearData'
+
 export type FileCategory = 'topic' | 'app' | 'document'
 
 export interface AppFile {
@@ -45,12 +48,32 @@ export const APP_FILES: AppFile[] = [
   { id: 'fg-3', category: 'app', app: 'figma', appLabel: 'Figma', title: 'Navigation rail v3', subtitle: 'Peek App v2 · Components' },
   { id: 'fg-4', category: 'app', app: 'figma', appLabel: 'Figma', title: 'Settings page wireframes', subtitle: 'Peek App v2 · Pages' },
   { id: 'fg-5', category: 'app', app: 'figma', appLabel: 'Figma', title: 'Brand illustration set', subtitle: 'Peek Brand · Assets' },
+  // Figma frames (from figmaData.ts) - being in APP_FILES makes their [titles]
+  // re-parse into chips after a message is sent and lists them in the [ menu.
+  ...FIGMA_FRAMES.map<AppFile>((f) => ({
+    id: f.id,
+    category: 'app',
+    app: 'figma',
+    appLabel: 'Figma',
+    title: f.name,
+    subtitle: `Frame · ${f.file} › ${f.page}`,
+  })),
   // Linear
   { id: 'ln-1', category: 'app', app: 'linear', appLabel: 'Linear', title: 'Implement push notification grouping', subtitle: 'ENG-4521 · Sprint 23' },
   { id: 'ln-2', category: 'app', app: 'linear', appLabel: 'Linear', title: 'Investigate slow query on dashboard load', subtitle: 'ENG-4498 · Backlog' },
   { id: 'ln-3', category: 'app', app: 'linear', appLabel: 'Linear', title: 'File upload size limit increase', subtitle: 'ENG-4530 · Sprint 23' },
   { id: 'ln-4', category: 'app', app: 'linear', appLabel: 'Linear', title: 'Dark mode color token audit', subtitle: 'DES-312 · Sprint 24' },
   { id: 'ln-5', category: 'app', app: 'linear', appLabel: 'Linear', title: 'Migrate cron jobs to new scheduler', subtitle: 'ENG-4545 · Backlog' },
+  // Linear issues (from linearData.ts) - titled by key so an inserted
+  // [PEEK-142] chip re-parses after send, and they're referenceable via [.
+  ...LINEAR_ISSUES.map<AppFile>((i) => ({
+    id: `linear-${i.key}`,
+    category: 'app',
+    app: 'linear',
+    appLabel: 'Linear',
+    title: i.key,
+    subtitle: `${i.title} · ${i.status}`,
+  })),
 ]
 
 export const DOCUMENT_FILES: DocumentFile[] = [

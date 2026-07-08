@@ -6,6 +6,7 @@ import { DateDivider } from '@/components/ui/DateDivider'
 import { ComposeBox, type SendPayload } from '@/components/ui/ComposeBox'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { DM_CONVERSATIONS } from '@/data/dmData'
+import { AGENT_DM_CONVERSATIONS } from '@/data/agentData'
 import { REPLIES, type ReplyData } from '@/data/replyData'
 import { type ConversationData } from '@/data/topicData'
 import { PEOPLE } from '@/data/peopleData'
@@ -24,6 +25,10 @@ interface UseDmConversationViewArgs {
   showUnreads?: boolean
   /** Promote the current DM into the first huddle of a new topic. */
   onStartTopicFromDm?: (dmId: number, dmName: string, seedMessageId: string, data: StartTopicResult) => void
+  /** Rendered after the name in the header (e.g. the "Agent" chip on agent DMs). */
+  headerBadge?: ReactNode
+  /** Group conversations: member count shown as the header badge icon instead of an avatar. */
+  headerGroupCount?: number
 }
 
 interface ViewSlots {
@@ -31,7 +36,7 @@ interface ViewSlots {
   threadPanel: ReactNode | undefined
 }
 
-export function useDmConversationView({ dmId, dmName, onToggleStarred, showUnreads = false, onStartTopicFromDm }: UseDmConversationViewArgs): ViewSlots {
+export function useDmConversationView({ dmId, dmName, onToggleStarred, showUnreads = false, onStartTopicFromDm, headerBadge, headerGroupCount }: UseDmConversationViewArgs): ViewSlots {
   const [sentMessages, setSentMessages] = useState<Record<number, ConversationData[]>>({})
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
   const [resolvedOverrides, setResolvedOverrides] = useState<Record<string, { resolved: boolean; resolvedBy?: string; message?: string; resolvedByReplyId?: string }>>({})
@@ -55,7 +60,7 @@ export function useDmConversationView({ dmId, dmName, onToggleStarred, showUnrea
     isTopicResolved,
   } = useTopicMutations()
 
-  const dmGroups = dmId != null ? (DM_CONVERSATIONS[dmId] ?? []) : []
+  const dmGroups = dmId != null ? (DM_CONVERSATIONS[dmId] ?? AGENT_DM_CONVERSATIONS[dmId] ?? []) : []
   const currentSent = dmId != null ? (sentMessages[dmId] ?? []) : []
 
   const dmPartner = dmName ? PEOPLE.find((p) => p.name === dmName) : undefined
@@ -122,10 +127,10 @@ export function useDmConversationView({ dmId, dmName, onToggleStarred, showUnrea
   const openThread = (convId: string) => setThreadConvId(convId)
   const closeThread = () => setThreadConvId(null)
 
-  const handleSendReply = ({ text, resolution }: SendPayload) => {
+  const handleSendReply = ({ text, resolution, attachments }: SendPayload) => {
     if (!threadConvId) return
     let newReplyId: string | undefined
-    if (text) {
+    if (text || attachments?.length) {
       const now = Date.now()
       newReplyId = `reply_${now}`
       const newReply: ReplyData = {
@@ -134,6 +139,7 @@ export function useDmConversationView({ dmId, dmName, onToggleStarred, showUnrea
         timestamp: new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         body: text,
         createdAtMs: now,
+        attachments,
       }
       setSentReplies((prev) => ({
         ...prev,
@@ -157,9 +163,9 @@ export function useDmConversationView({ dmId, dmName, onToggleStarred, showUnrea
     }))
   }
 
-  const handleSend = ({ text, resolution }: SendPayload) => {
+  const handleSend = ({ text, resolution, attachments }: SendPayload) => {
     if (dmId == null) return
-    if (text) {
+    if (text || attachments?.length) {
       const newMsg: ConversationData = {
         id: `sent_${Date.now()}`,
         authorName: 'You',
@@ -168,6 +174,7 @@ export function useDmConversationView({ dmId, dmName, onToggleStarred, showUnrea
         isResolved: resolution ? true : undefined,
         resolvedBy: resolution ? 'You' : undefined,
         resolutionMessage: resolution?.message || undefined,
+        attachments,
       }
       setSentMessages((prev) => ({ ...prev, [dmId]: [...(prev[dmId] ?? []), newMsg] }))
     } else if (resolution) {
@@ -227,6 +234,8 @@ export function useDmConversationView({ dmId, dmName, onToggleStarred, showUnrea
     <div className="flex flex-col h-full">
       <ConversationHeader
         name={dmName}
+        badge={headerBadge}
+        groupCount={headerGroupCount}
         isStarred={dmId != null && isDmStarred(dmId)}
         onToggleStarred={
           onToggleStarred ??
@@ -245,6 +254,7 @@ export function useDmConversationView({ dmId, dmName, onToggleStarred, showUnrea
                   authorName={c.authorName}
                   timestamp={c.timestamp}
                   body={bodyOverrides[c.id] ?? c.body}
+                  attachments={c.attachments}
                   reactions={reactionOverrides[c.id] ?? c.reactions}
                   highlightType={c.id in highlightOverrides ? highlightOverrides[c.id] : c.highlightType}
                   replyCount={(REPLIES[c.id]?.length ?? c.replyCount ?? 0) + (sentReplies[c.id]?.length ?? 0)}
@@ -280,6 +290,7 @@ export function useDmConversationView({ dmId, dmName, onToggleStarred, showUnrea
                   authorName={m.authorName}
                   timestamp={m.timestamp}
                   body={bodyOverrides[m.id] ?? m.body}
+                  attachments={m.attachments}
                   reactions={reactionOverrides[m.id] ?? m.reactions}
                   highlightType={m.id in highlightOverrides ? highlightOverrides[m.id] : m.highlightType}
                   replyCount={sentReplies[m.id]?.length ?? 0}
@@ -305,7 +316,7 @@ export function useDmConversationView({ dmId, dmName, onToggleStarred, showUnrea
         </div>
       </div>
       <div className="p-3">
-        <ComposeBox onSend={handleSend} />
+        <ComposeBox onSend={handleSend} contextLabel={dmName ? `DM · ${dmName}` : undefined} />
       </div>
     </div>
   )

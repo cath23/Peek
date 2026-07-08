@@ -209,6 +209,7 @@ export function ThreadPanel({
               authorName={conversation.authorName}
               timestamp={conversation.timestamp}
               body={conversation.body}
+              attachments={conversation.attachments}
               reactions={initialReactions}
               highlightType={initialHighlightType}
               onBodyChange={onInitialBodyChange}
@@ -238,6 +239,7 @@ export function ThreadPanel({
               authorName={reply.authorName}
               timestamp={reply.timestamp}
               body={replyBodyOverrides[reply.id] ?? reply.body}
+              attachments={reply.attachments}
               highlightType={
                 reply.id in replyHighlightOverrides ? replyHighlightOverrides[reply.id] : reply.highlightType
               }
@@ -295,6 +297,7 @@ export function ThreadPanel({
               authorName={reply.authorName}
               timestamp={reply.timestamp}
               body={replyBodyOverrides[reply.id] ?? reply.body}
+              attachments={reply.attachments}
               highlightType={
                 reply.id in replyHighlightOverrides ? replyHighlightOverrides[reply.id] : reply.highlightType
               }
@@ -315,7 +318,7 @@ export function ThreadPanel({
 
       {/* Compose box */}
       <div className="p-3">
-        <ComposeBox onSend={onSendReply} placeholder="reply" />
+        <ComposeBox onSend={onSendReply} placeholder="reply" contextLabel={`Reply to ${conversation.authorName}`} />
       </div>
     </div>
   )

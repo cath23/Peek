@@ -48,6 +48,8 @@ export interface ConversationData {
   isResolved?: boolean
   resolvedBy?: string
   resolutionMessage?: string
+  /** Figma frame ids attached to the message (see figmaData.ts). */
+  attachments?: string[]
 }
 
 export interface ConvGroup {

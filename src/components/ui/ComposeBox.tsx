@@ -1,24 +1,33 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { registerActiveComposer, unregisterComposer } from '@/lib/composerRegistry'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { PeekMention, UrgentMention, TopicMention, FileMention, isSuggestionActive } from '@/extensions/mention'
 import { ResolutionBlock, extractResolution } from '@/extensions/resolution'
 import { HighlightTag, extractHighlightType } from '@/extensions/highlight'
-import { IconPaperclip, IconSquareForbid2, IconArrowUp, IconHighlight } from '@tabler/icons-react'
+import { IconPaperclip, IconSquareForbid2, IconArrowUp, IconHighlight, IconX } from '@tabler/icons-react'
 import { IconButton } from './IconButton'
 import { HighlightSwatch } from './HighlightPill'
+import { FrameArt } from './FrameArt'
+import { FrameLightbox } from '../FrameLightbox'
 import { cn } from '@/lib/utils'
 import { HIGHLIGHT_META, type HighlightType } from '@/data/topicData'
+import { frameById, frameBreadcrumb, type FigmaFrame } from '@/data/figmaData'
 
 export interface SendPayload {
   text: string
   resolution?: { message: string }
   highlightType?: HighlightType
+  /** Figma frame ids attached via the command launcher's find flow. */
+  attachments?: string[]
 }
 
 interface ComposeBoxProps {
   onSend?: (payload: SendPayload) => void
   placeholder?: 'default' | 'reply'
+  /** Names this composer as a launcher target ("Reply to Alice", "#Topic").
+   *  Shown in the command launcher's context chip and the Figma attach footer. */
+  contextLabel?: string
   className?: string
 }
 
@@ -95,17 +104,24 @@ const SLASH_ITEMS: SlashItem[] = [
   { kind: 'shortcut', label: 'Resolve',  trigger: '→',  input: '-> ', description: 'Resolve conversation' },
 ]
 
-export function ComposeBox({ onSend, placeholder = 'default', className }: ComposeBoxProps) {
+export function ComposeBox({ onSend, placeholder = 'default', contextLabel, className }: ComposeBoxProps) {
   const [isEmpty, setIsEmpty] = useState(true)
   const [hasUrgent, setHasUrgent] = useState(false)
   const [hasHighlight, setHasHighlight] = useState(false)
   const [showSlashMenu, setShowSlashMenu] = useState(false)
   const [slashQuery, setSlashQuery] = useState('')
   const [slashHighlight, setSlashHighlight] = useState(0)
+  const [attachedFrameIds, setAttachedFrameIds] = useState<string[]>([])
+  const [previewFrame, setPreviewFrame] = useState<FigmaFrame | null>(null)
   const composeRef = useRef<HTMLDivElement>(null)
 
   const sendFnRef = useRef(onSend)
   sendFnRef.current = onSend
+
+  // Mirror attachments into a ref so the editorProps Enter handler (a stable
+  // closure) always sees the current list.
+  const attachedFramesRef = useRef<string[]>([])
+  attachedFramesRef.current = attachedFrameIds
 
   const editorRef = useRef<ReturnType<typeof useEditor>>(null)
 
@@ -135,13 +151,16 @@ export function ComposeBox({ onSend, placeholder = 'default', className }: Compo
           const text = serializeToText(ed)
           const resolution = extractResolution(ed)
           const hl = extractHighlightType(ed)
-          if (text || resolution.hasResolution) {
+          const attachments = attachedFramesRef.current
+          if (text || resolution.hasResolution || attachments.length > 0) {
             sendFnRef.current?.({
               text,
               resolution: resolution.hasResolution ? { message: resolution.resolutionMessage } : undefined,
               highlightType: hl,
+              attachments: attachments.length > 0 ? [...attachments] : undefined,
             })
             ed.commands.clearContent(true)
+            setAttachedFrameIds([])
           }
           return true
         }
@@ -219,6 +238,26 @@ export function ComposeBox({ onSend, placeholder = 'default', className }: Compo
   })
 
   editorRef.current = editor
+
+  // Register with the global composer registry so the command launcher can
+  // insert into "the compose box the user last touched" (focus wins; the most
+  // recently mounted composer is the fallback).
+  useEffect(() => {
+    if (!editor) return
+    const handle = {
+      editor,
+      label: contextLabel,
+      attachFrames: (ids: string[]) =>
+        setAttachedFrameIds((prev) => [...prev, ...ids.filter((id) => !prev.includes(id))]),
+    }
+    registerActiveComposer(handle)
+    const onFocus = () => registerActiveComposer(handle)
+    editor.on('focus', onFocus)
+    return () => {
+      editor.off('focus', onFocus)
+      unregisterComposer(editor)
+    }
+  }, [editor, contextLabel])
 
   // Insert a highlight tag into the editor at the start (preserving existing text)
   const insertHighlightTag = useCallback((type: HighlightType) => {
@@ -345,17 +384,19 @@ export function ComposeBox({ onSend, placeholder = 'default', className }: Compo
     const text = serializeToText(editor)
     const resolution = extractResolution(editor)
     const hl = extractHighlightType(editor)
-    if (!text && !resolution.hasResolution) return
+    if (!text && !resolution.hasResolution && attachedFrameIds.length === 0) return
     onSend?.({
       text,
       resolution: resolution.hasResolution ? { message: resolution.resolutionMessage } : undefined,
       highlightType: hl,
+      attachments: attachedFrameIds.length > 0 ? attachedFrameIds : undefined,
     })
     editor.commands.clearContent(true)
     editor.commands.focus()
     setIsEmpty(true)
     setHasUrgent(false)
     setHasHighlight(false)
+    setAttachedFrameIds([])
   }
 
   // Split filtered items into sections for rendering
@@ -461,7 +502,7 @@ export function ComposeBox({ onSend, placeholder = 'default', className }: Compo
 
       <div className="relative bg-bg-inset border border-border-default focus-within:border-border-strong rounded-lg p-3 flex flex-col gap-4 transition-colors">
         {/* Editable area - left border when urgent or highlight */}
-        <div className={cn(
+        <div data-composer-editor className={cn(
           'relative min-h-[20px] transition-all',
           hasUrgent && 'border-l-[4px] border-border-strong pl-2',
           !hasUrgent && hasHighlight && 'border-l-[4px] border-border-strong pl-2'
@@ -483,6 +524,42 @@ export function ComposeBox({ onSend, placeholder = 'default', className }: Compo
             </div>
           )}
         </div>
+
+        {/* Attached frames - preview cards below the text, removable, click to view */}
+        {attachedFrameIds.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {attachedFrameIds.map((id) => {
+              const frame = frameById(id)
+              if (!frame) return null
+              return (
+                <div
+                  key={id}
+                  className="group relative flex flex-col w-[132px] rounded-lg border border-border-default bg-bg-elevated p-1.5 gap-1.5 cursor-pointer"
+                  onClick={() => setPreviewFrame(frame)}
+                >
+                  <div className="h-20 rounded-md bg-bg-active flex items-center justify-center overflow-hidden">
+                    <FrameArt frame={frame} className={frame.kind === 'mobile' ? 'h-[68px]' : 'w-[90%]'} />
+                  </div>
+                  <div className="flex flex-col gap-[1px] min-w-0">
+                    <span className="text-[12px] font-medium leading-[1.3] text-text-primary truncate">{frame.name}</span>
+                    <span className="text-[10px] leading-[1.2] text-text-secondary truncate">{frameBreadcrumb(frame)}</span>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label={`Remove ${frame.name}`}
+                    className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-bg-elevated border border-border-strong flex items-center justify-center text-text-secondary hover:text-text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setAttachedFrameIds((prev) => prev.filter((fid) => fid !== id))
+                    }}
+                  >
+                    <IconX size={11} stroke={1.75} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
 
         {/* Toolbar */}
         <div className="flex items-center justify-between">
@@ -507,11 +584,11 @@ export function ComposeBox({ onSend, placeholder = 'default', className }: Compo
               e.preventDefault()
               handleSend()
             }}
-            disabled={isEmpty}
+            disabled={isEmpty && attachedFrameIds.length === 0}
             aria-label="Send"
             className={cn(
               'flex items-center justify-center p-1 rounded-lg transition-colors',
-              !isEmpty
+              !isEmpty || attachedFrameIds.length > 0
                 ? 'bg-accent-primary hover:bg-accent-hover text-text-inverse cursor-pointer'
                 : 'bg-bg-disabled text-text-disabled pointer-events-none'
             )}
@@ -520,6 +597,10 @@ export function ComposeBox({ onSend, placeholder = 'default', className }: Compo
           </button>
         </div>
       </div>
+
+      {previewFrame && (
+        <FrameLightbox frame={previewFrame} onClose={() => setPreviewFrame(null)} />
+      )}
     </div>
   )
 }

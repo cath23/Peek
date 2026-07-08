@@ -33,6 +33,58 @@ export const MENTION_RE = new RegExp(
   'g'
 )
 
+// ── External references (auto-linked) ──
+//
+// Text patterns that clearly point at something in a connected app become
+// clickable reference chips in read-only message bodies (same pill treatment
+// as [file] mentions, plus a pointer cursor + hover underline).
+//
+// Order matters: the worded forms ("Zendesk ticket #48821", "PR #482",
+// "Build #4821") must come before the bare `#123` fallback so the context
+// word is captured as part of the chip label.
+
+const _referenceAlternation = [
+  '(?:Zendesk )?[Tt]icket #\\d+',
+  'PR #\\d+',
+  '[Bb]uild #\\d+',
+  'PEEK-\\d+',
+  '#\\d+(?!\\d)',
+].join('|')
+
+/** Tokenizer for read-only rendering: mentions, [refs], and external references.
+ *  Single capture group so String.split() interleaves cleanly. */
+export const INLINE_TOKEN_RE = new RegExp(
+  `((?:!@|@)(?:${_escapedNames})|@[a-z][a-z0-9-]+(?![a-zA-Z/-])|\\[(?:${_escapedBracketTitles})\\]|${_referenceAlternation})`,
+  'g'
+)
+
+export type ReferenceKind = 'linear' | 'github' | 'build' | 'ticket'
+
+export interface ReferenceMatch {
+  kind: ReferenceKind
+  href: string
+}
+
+/** Classify a token produced by INLINE_TOKEN_RE as an external reference.
+ *  Returns null for mentions/brackets/plain text. Hrefs are plausible
+ *  destinations in the connected apps (prototype: links are inert). */
+export function matchReference(part: string): ReferenceMatch | null {
+  const num = part.match(/\d+/)?.[0]
+  if (/^PEEK-\d+$/.test(part)) {
+    return { kind: 'linear', href: `https://linear.app/peek/issue/${part}` }
+  }
+  if (/^(?:Zendesk )?[Tt]icket #\d+$/.test(part)) {
+    return { kind: 'ticket', href: `https://peek.zendesk.com/agent/tickets/${num}` }
+  }
+  if (/^[Bb]uild #\d+$/.test(part)) {
+    return { kind: 'build', href: `https://github.com/peek/peek/actions/runs/${num}` }
+  }
+  if (/^(?:PR )?#\d+$/.test(part)) {
+    return { kind: 'github', href: `https://github.com/peek/peek/pull/${num}` }
+  }
+  return null
+}
+
 // ── Inline content parser ──
 
 /** Parse a single line into Tiptap inline JSON nodes (text + mention nodes). */

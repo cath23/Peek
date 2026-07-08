@@ -10,6 +10,8 @@ import avatarSrc from '@/assets/avatar.png'
 
 interface TopBarProps {
   onMenuToggle?: () => void
+  /** Clicking the search field opens the command launcher instead of focusing the input. */
+  onSearchClick?: () => void
 }
 
 const THEME_OPTIONS: { value: Theme; label: string; icon: React.FC<{ size: number; stroke: number; className?: string }> }[] = [
@@ -18,7 +20,7 @@ const THEME_OPTIONS: { value: Theme; label: string; icon: React.FC<{ size: numbe
   { value: 'system', label: 'System', icon: IconDeviceDesktop },
 ]
 
-export function TopBar({ onMenuToggle }: TopBarProps) {
+export function TopBar({ onMenuToggle, onSearchClick }: TopBarProps) {
   const { theme, setTheme } = useTheme()
   const [menuOpen, setMenuOpen] = useState(false)
   const [debugOpen, setDebugOpen] = useState(false)
@@ -52,7 +54,17 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
 
       {/* Center */}
       <div className="flex-1 flex items-center justify-center pointer-events-auto">
-        <SearchInput shortcut="⌘ K" className="w-[290px]" />
+        {/* The field is a launcher affordance, not a real input - clicking opens
+            the command launcher; preventDefault keeps the input from focusing. */}
+        <div
+          className="cursor-pointer"
+          onMouseDown={(e) => {
+            e.preventDefault()
+            onSearchClick?.()
+          }}
+        >
+          <SearchInput shortcut="⌘ K" className="w-[290px] pointer-events-none" />
+        </div>
       </div>
 
       {/* Right */}

@@ -12,6 +12,8 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { TopicTabs, type TopicTab } from '@/components/ui/TopicTabs'
 import { IconButton } from '@/components/ui/IconButton'
 import { Button } from '@/components/ui/Button'
+import { TimelineView } from '@/components/TimelineView'
+import { TOPIC_TIMELINES } from '@/data/timelineData'
 import { TOPIC_CONVERSATIONS, type ConversationData, type HighlightType, type ReactionData } from '@/data/topicData'
 import { DM_CONVERSATIONS } from '@/data/dmData'
 import { type Huddle } from '@/data/huddleData'
@@ -51,7 +53,7 @@ export function useTopicView({
   const [activeTab, setActiveTab] = useState<TopicTab>('conversations')
   const scrollRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
-  const { setPendingDmThreadId } = useLastSelection()
+  const { setPendingDmThreadId, pendingTopicThread, setPendingTopicThread } = useLastSelection()
   const { isTopicStarred, toggleTopic } = useStarred()
   const { getHuddlesForTopic, findTopic } = useTopicStore()
   const { state: debug } = useDebug()
@@ -95,6 +97,9 @@ export function useTopicView({
 
   // Thread + huddle UI state stays local — it's transient view state, not data.
   const [threadConvId, setThreadConvId] = useState<string | null>(null)
+  // Intelligence prototype: the topic timeline replaces the conversation body
+  // (V2/V3 header button; V1 uses its Timeline tab instead).
+  const [showTimeline, setShowTimeline] = useState(false)
   const huddleCreateRef = useRef<HTMLDivElement>(null)
   const huddleToInputRef = useRef<HTMLInputElement>(null)
   const [selectedHuddleId, setSelectedHuddleId] = useState<string | null>(null)
@@ -202,6 +207,24 @@ export function useTopicView({
     setSelectedHuddleId(null)
   }
 
+  // Leave the timeline when switching topics or huddle variants.
+  useEffect(() => {
+    setShowTimeline(false)
+  }, [topicId, huddleVariant])
+
+  // One-shot deep link (launcher search results, fact-check "view source"):
+  // open the requested thread once this topic is showing, then clear.
+  useEffect(() => {
+    if (pendingTopicThread && topicId != null && pendingTopicThread.topicId === topicId) {
+      setShowTimeline(false)
+      setActiveTab('conversations')
+      setSelectedHuddleId(null)
+      setThreadConvId(pendingTopicThread.convId)
+      setPendingTopicThread(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingTopicThread, topicId])
+
   const isConvResolved = (id: string, initial = false) => resolvedOverrides[id]?.resolved ?? initial
   const getConvResolvedBy = (id: string, initial = '') => resolvedOverrides[id]?.resolvedBy ?? initial
   const getConvResolutionMsg = (id: string, initial = '') => resolvedOverrides[id]?.message ?? initial
@@ -224,10 +247,10 @@ export function useTopicView({
   const handleBodyChange = (id: string, body: string) =>
     setBodyOverrides((prev) => ({ ...prev, [id]: body }))
 
-  const handleSendReply = ({ text, resolution, highlightType }: SendPayload) => {
+  const handleSendReply = ({ text, resolution, highlightType, attachments }: SendPayload) => {
     if (!threadConvId) return
     let newReplyId: string | undefined
-    if (text) {
+    if (text || attachments?.length) {
       const now = Date.now()
       newReplyId = `reply_${now}`
       const newReply: ReplyData = {
@@ -237,6 +260,7 @@ export function useTopicView({
         body: text,
         highlightType,
         createdAtMs: now,
+        attachments,
       }
       setSentReplies((prev) => ({ ...prev, [threadConvId]: [...(prev[threadConvId] ?? []), newReply] }))
     }
@@ -254,9 +278,9 @@ export function useTopicView({
     setSentReplies((prev) => ({ ...prev, [threadConvId]: (prev[threadConvId] ?? []).filter((r) => r.id !== replyId) }))
   }
 
-  const handleSend = ({ text, resolution, highlightType }: SendPayload) => {
+  const handleSend = ({ text, resolution, highlightType, attachments }: SendPayload) => {
     if (topicId == null) return
-    if (text) {
+    if (text || attachments?.length) {
       const newMsg: ConversationData = {
         id: `sent_${Date.now()}`,
         authorName: 'You',
@@ -266,6 +290,7 @@ export function useTopicView({
         isResolved: resolution ? true : undefined,
         resolvedBy: resolution ? 'You' : undefined,
         resolutionMessage: resolution?.message || undefined,
+        attachments,
       }
       setSentMessages((prev) => ({ ...prev, [topicId]: [...(prev[topicId] ?? []), newMsg] }))
     } else if (resolution) {
@@ -548,7 +573,7 @@ export function useTopicView({
         </div>
       ) : (
         <div className="border border-t-0 border-border-default rounded-b-lg overflow-hidden">
-          <ComposeBox onSend={handleHuddleSend} placeholder="default" />
+          <ComposeBox onSend={handleHuddleSend} placeholder="default" contextLabel={topicTitle ? `New huddle in ${topicTitle}` : undefined} />
         </div>
       )}
     </div>
@@ -579,6 +604,15 @@ export function useTopicView({
         onStartHuddle={
           huddleVariant === 1 || isV2HuddleView ? undefined : () => setIsCreatingHuddle(true)
         }
+        onToggleTimeline={
+          debug.intelligence.enabled && huddleVariant !== 1 && !isV2HuddleView && topicId != null && TOPIC_TIMELINES[topicId]
+            ? () => {
+                setThreadConvId(null)
+                setShowTimeline((v) => !v)
+              }
+            : undefined
+        }
+        timelineActive={showTimeline}
         tabs={
           huddleVariant === 1 ? (
             <TopicTabs
@@ -622,6 +656,7 @@ export function useTopicView({
                       authorName={c.authorName}
                       timestamp={c.timestamp}
                       body={bodyOverrides[c.id] ?? c.body}
+                        attachments={c.attachments}
                       reactions={reactionOverrides[c.id] ?? c.reactions}
                       highlightType={c.id in highlightOverrides ? highlightOverrides[c.id] : c.highlightType}
                       replyCount={(REPLIES[c.id]?.length ?? c.replyCount ?? 0) + (sentReplies[c.id]?.length ?? 0)}
@@ -643,7 +678,7 @@ export function useTopicView({
               </div>
             </div>
             <div className="p-3">
-              <ComposeBox onSend={handleHuddleMessageSend} />
+              <ComposeBox onSend={handleHuddleMessageSend} contextLabel={`Huddle · ${v2HuddleNameLabel}`} />
             </div>
           </>
         )
@@ -697,6 +732,7 @@ export function useTopicView({
                         authorName={c.authorName}
                         timestamp={c.timestamp}
                         body={bodyOverrides[c.id] ?? c.body}
+                        attachments={c.attachments}
                         reactions={reactionOverrides[c.id] ?? c.reactions}
                         highlightType={c.id in highlightOverrides ? highlightOverrides[c.id] : c.highlightType}
                         replyCount={(REPLIES[c.id]?.length ?? c.replyCount ?? 0) + (sentReplies[c.id]?.length ?? 0)}
@@ -722,6 +758,7 @@ export function useTopicView({
                         authorName={m.authorName}
                         timestamp={m.timestamp}
                         body={bodyOverrides[m.id] ?? m.body}
+                        attachments={m.attachments}
                         reactions={reactionOverrides[m.id] ?? m.reactions}
                         highlightType={m.id in highlightOverrides ? highlightOverrides[m.id] : m.highlightType}
                         replyCount={sentReplies[m.id]?.length ?? 0}
@@ -772,6 +809,7 @@ export function useTopicView({
                           authorName={c.authorName}
                           timestamp={c.timestamp}
                           body={bodyOverrides[c.id] ?? c.body}
+                        attachments={c.attachments}
                           reactions={reactionOverrides[c.id] ?? c.reactions}
                           highlightType={c.id in highlightOverrides ? highlightOverrides[c.id] : c.highlightType}
                           replyCount={(REPLIES[c.id]?.length ?? c.replyCount ?? 0) + (sentReplies[c.id]?.length ?? 0)}
@@ -803,6 +841,7 @@ export function useTopicView({
                           authorName={m.authorName}
                           timestamp={m.timestamp}
                           body={bodyOverrides[m.id] ?? m.body}
+                        attachments={m.attachments}
                           reactions={reactionOverrides[m.id] ?? m.reactions}
                           highlightType={m.id in highlightOverrides ? highlightOverrides[m.id] : m.highlightType}
                           replyCount={sentReplies[m.id]?.length ?? 0}
@@ -851,7 +890,7 @@ export function useTopicView({
             huddleCreatorBlock
           ) : (
             <div className="p-3">
-              <ComposeBox onSend={handleSend} />
+              <ComposeBox onSend={handleSend} contextLabel={topicTitle ? `#${topicTitle}` : undefined} />
             </div>
           )}
         </>

@@ -23,6 +23,9 @@ import {
   IconAlertSquareRounded,
 } from '@tabler/icons-react'
 import figmaIcon from '@/assets/figma icon.svg'
+import { FrameArt } from './ui/FrameArt'
+import { FrameLightbox } from './FrameLightbox'
+import { frameById, frameBreadcrumb, type FigmaFrame } from '@/data/figmaData'
 import linearIcon from '@/assets/linear icon.svg'
 import { IconButton } from './ui/IconButton'
 import { Avatar } from './ui/Avatar'
@@ -39,10 +42,11 @@ import { HIGHLIGHT_META, type HighlightType } from '@/data/topicData'
 
 // ── Inline rendering (shared with ConversationCard via lib/textParsing) ──
 
-import { MENTION_RE, parseInlineContent, serializeInline, textToTiptapContent, serializeTiptapToText, parseBodySegments } from '@/lib/textParsing'
+import { INLINE_TOKEN_RE, matchReference, parseInlineContent, serializeInline, textToTiptapContent, serializeTiptapToText, parseBodySegments } from '@/lib/textParsing'
+import { ReferenceChip } from './ui/ReferenceChip'
 
 function renderWithMentions(text: string, isTopicResolved: (id: string) => boolean): React.ReactNode {
-  const parts = text.split(MENTION_RE)
+  const parts = text.split(INLINE_TOKEN_RE)
   if (parts.length === 1) return text
   return (
     <>
@@ -95,6 +99,9 @@ function renderWithMentions(text: string, isTopicResolved: (id: string) => boole
             </span>
           )
         }
+        if (matchReference(part)) {
+          return <ReferenceChip key={i} label={part} />
+        }
         return part || null
       })}
     </>
@@ -104,7 +111,7 @@ function renderWithMentions(text: string, isTopicResolved: (id: string) => boole
 function MessageBody({ body, isTopicResolved }: { body: string; isTopicResolved: (id: string) => boolean }) {
   const segments = parseBodySegments(body)
   return (
-    <div className="flex flex-col gap-1 text-sm text-text-secondary leading-[1.4]">
+    <div data-message-body className="flex flex-col gap-1 text-sm text-text-secondary leading-[1.4]">
       {segments.map((seg, i) => {
         if (seg.type === 'bullet') {
           return (
@@ -265,6 +272,8 @@ interface ThreadReplyCardProps {
   body: string
   reactions?: ReactionData[]
   highlightType?: HighlightType
+  /** Figma frame ids attached to the reply (rendered as preview cards). */
+  attachments?: string[]
   isNew?: boolean
   isUrgent?: boolean
   onHighlightChange?: (type: HighlightType | undefined) => void
@@ -291,6 +300,7 @@ export function ThreadReplyCard({
   body,
   reactions,
   highlightType,
+  attachments,
   isNew = false,
   isUrgent = false,
   onHighlightChange,
@@ -324,6 +334,7 @@ export function ThreadReplyCard({
   useEffect(() => { setBodyState(body) }, [body])
   useEffect(() => { setHighlightState(highlightType) }, [highlightType])
   const [isEditing, setIsEditing] = useState(false)
+  const [previewFrame, setPreviewFrame] = useState<FigmaFrame | null>(null)
   const [editEmpty, setEditEmpty] = useState(false)
   const [editHasUrgent, setEditHasUrgent] = useState(false)
   const [editHasHighlight, setEditHasHighlight] = useState(false)
@@ -630,6 +641,36 @@ export function ThreadReplyCard({
             <div className="pl-8 pr-2 pt-1 pb-2 w-full overflow-hidden break-words">
               <MessageBody body={bodyState} isTopicResolved={isTopicResolved} />
             </div>
+            {attachments && attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 pl-8 pr-2 pb-2 w-full">
+                {attachments.map((id) => {
+                  const frame = frameById(id)
+                  if (!frame) return null
+                  return (
+                    <div
+                      key={id}
+                      data-interactive
+                      className="flex flex-col w-[132px] rounded-lg border border-border-subtle bg-bg-inset hover:border-border-default p-1.5 gap-1.5 cursor-pointer transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setPreviewFrame(frame)
+                      }}
+                    >
+                      <div className="h-20 rounded-md bg-bg-active flex items-center justify-center overflow-hidden">
+                        <FrameArt frame={frame} className={frame.kind === 'mobile' ? 'h-[68px]' : 'w-[90%]'} />
+                      </div>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <img src={figmaIcon} width={14} height={14} alt="Figma" className="rounded-[3px] shrink-0" />
+                        <div className="flex flex-col gap-[1px] min-w-0">
+                          <span className="text-[12px] font-medium leading-[1.3] text-text-primary truncate">{frame.name}</span>
+                          <span className="text-[10px] leading-[1.2] text-text-secondary truncate">{frameBreadcrumb(frame)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
             {reactionsState.length > 0 && (
               <div className="flex items-center gap-2 pl-8 pt-1 pb-2 w-full">
                 {reactionsState.map((r, i) => (
@@ -704,6 +745,10 @@ export function ThreadReplyCard({
           </div>,
           document.body
         )}
+
+      {previewFrame && (
+        <FrameLightbox frame={previewFrame} onClose={() => setPreviewFrame(null)} />
+      )}
     </>
   )
 }
